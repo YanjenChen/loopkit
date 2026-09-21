@@ -182,6 +182,8 @@ def run_worker(run_dir, job_id):
         for path in gpu_lock_paths(info.get('gpu')):
             locks.append(_lock(path))
         job.set_status(state='running', running=now_iso())
+        # Holding the eval lock, no other git process uses the eval worktree: a lock file is stale.
+        gitops.remove_stale_index_lock(run_paths.eval)
         common = info['repo']['common_dir']
         commit = spec.get('commit')
         if not commit:

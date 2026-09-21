@@ -2,7 +2,8 @@
 
 The page reads two collections from the artifact's database:
 - `records`: the ledger in chunks of CHUNK records (doc ids chunk-00000, ...),
-  each record carrying the derived fields `loopkit export` computes;
+  each record slimmed for display and carrying the derived fields
+  `loopkit export` computes;
 - `meta`: one document, `current`, with the objectives, run status and patterns.
 
 The run session pushes both with the Artifact tool's write_db batch, using the
@@ -16,9 +17,12 @@ import os
 import random
 
 from . import ledger as ledger_mod, pareto, paths as paths_mod, report
-from .util import LoopkitError, now_iso, write_json_atomic
+from .util import LoopkitError, now_iso, write_atomic
 
-CHUNK = 50
+CHUNK = 25
+DOC_LIMIT = 250 * 1024       # the database's per-document cap is 256 KiB
+MAX_CHUNK_WRITES = 49        # a write_db batch takes 50 writes; one is meta
+FIELD_LIMIT = 2000           # bytes of JSON kept for a record's extra values
 TEMPLATE = os.path.join(paths_mod.plugin_root(), 'monitor', 'monitor.html')
 DB_CAPABILITIES = {'db': {'rules': [{'path': '', 'read': 'view', 'write': 'admin'}]}}
 
@@ -190,8 +194,53 @@ def sample_data(config, run_name):
 
 # -- pushing records -----------------------------------------------------------------
 
+def _size(obj):
+    return len(json.dumps(obj, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
+
+
+def slim(record, tight=False):
+    """A display copy of a record that stays small whatever the score script put in extra."""
+    out = {k: v for k, v in record.items() if k != 'prev'}
+    for key in ('idea', 'learned', 'reason'):
+        if isinstance(out.get(key), str) and len(out[key]) > 500:
+            out[key] = out[key][:497] + '...'
+    limit = 0 if tight else FIELD_LIMIT
+    extra = out.get('extra')
+    if isinstance(extra, dict) and _size(extra) > limit:
+        kept = {}
+        for key, value in extra.items():
+            if isinstance(value, (bool, int, float)) or (isinstance(value, str) and len(value) <= 120):
+                if _size(kept) + _size({key: value}) > limit:
+                    break
+                kept[key] = value
+        out['extra'] = kept
+        out['extra_truncated'] = True
+    constraints = out.get('constraints')
+    if isinstance(constraints, dict):
+        out['constraints'] = {
+            name: (dict(value, detail=str(value['detail'])[:200]) if isinstance(value, dict) and value.get('detail') else value)
+            for name, value in constraints.items()}
+    if tight and isinstance(out.get('files'), list) and len(out['files']) > 10:
+        out['files'] = out['files'][:10]
+    return out
+
+
+def chunk_doc(members):
+    doc = {'first_seq': members[0]['seq'], 'last_seq': members[-1]['seq'], 'records': [slim(r) for r in members]}
+    if _size(doc) > DOC_LIMIT:
+        doc['records'] = [slim(r, tight=True) for r in members]
+    if _size(doc) > DOC_LIMIT:
+        raise LoopkitError('monitor chunk %d-%d is over the database document limit' % (doc['first_seq'], doc['last_seq']))
+    return doc
+
+
 def push_plan(run):
-    """Write the documents to push as JSON files; returns (writes, latest_seq, pushed_seq)."""
+    """Write the documents to push as compact JSON files.
+
+    Returns (writes, ack_seq, pushed_seq, more): ack_seq is the seq to
+    acknowledge after the batch succeeds; more is True when further chunks wait
+    for the next push.
+    """
     records = run.records()
     state = run._state('monitor.json') or {}
     pushed = state.get('pushed_seq', 0)
@@ -200,20 +249,24 @@ def push_plan(run):
     meta['run'] = run.name
     out_dir = os.path.join(run.paths.work, 'monitor')
     os.makedirs(out_dir, exist_ok=True)
-    writes = []
     chunks = sorted({(r['seq'] - 1) // CHUNK for r in records_out if r['seq'] > pushed})
+    more = len(chunks) > MAX_CHUNK_WRITES
+    chunks = chunks[:MAX_CHUNK_WRITES]
+    writes = []
+    ack = latest
     for index in chunks:
         members = [r for r in records_out if (r['seq'] - 1) // CHUNK == index]
-        doc = {'first_seq': members[0]['seq'], 'last_seq': members[-1]['seq'], 'records': members}
+        doc = chunk_doc(members)
         path = os.path.join(out_dir, 'records-%s.json' % chunk_id(index))
-        write_json_atomic(path, doc)
-        if os.path.getsize(path) > 240 * 1024:
-            raise LoopkitError('monitor chunk %s is over the 256 KiB document limit' % chunk_id(index))
+        write_atomic(path, json.dumps(doc, ensure_ascii=False, separators=(',', ':')))
         writes.append({'op': 'set', 'collection': 'records', 'doc_id': chunk_id(index), 'file_path': path})
+        ack = doc['last_seq']
+    if not more:
+        ack = latest
     path = os.path.join(out_dir, 'meta-current.json')
-    write_json_atomic(path, meta)
+    write_atomic(path, json.dumps(meta, ensure_ascii=False, separators=(',', ':')))
     writes.append({'op': 'set', 'collection': 'meta', 'doc_id': 'current', 'file_path': path})
-    return writes, latest, pushed
+    return writes, ack, pushed, more
 
 
 def default_title(repo_name, run_name):

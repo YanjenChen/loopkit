@@ -33,6 +33,45 @@ def _write_blob(repo, entry, dest_root, rel_path, warnings):
     os.chmod(target, 0o755 if mode == '100755' else 0o644)
 
 
+def missing(repo, assets):
+    """Assets that are neither tracked at HEAD nor present on disk."""
+    tracked = {e[3] for e in gitops.ls_tree(repo, 'HEAD')} if gitops.run(
+        ['rev-parse', '--verify', '--quiet', 'HEAD'], repo, check=False).returncode == 0 else set()
+    result = []
+    for asset in assets:
+        if os.path.isabs(asset):
+            if not os.path.lexists(asset):
+                result.append(asset)
+            continue
+        norm = os.path.normpath(asset).replace(os.sep, '/').strip('/')
+        if os.path.lexists(os.path.join(repo, norm)):
+            continue
+        if norm in tracked or any(path.startswith(norm + '/') for path in tracked):
+            continue
+        result.append(asset)
+    return result
+
+
+def _copy_untracked(repo, norm, tracked_paths, dest):
+    """Copy files under repo/norm that git does not track (e.g. ignored benchmarks); returns the count."""
+    root = os.path.join(repo, norm)
+    copied = 0
+    if not os.path.isdir(root) or os.path.islink(root):
+        return 0
+    for directory, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d != '.git']
+        for name in filenames + [d for d in dirnames if os.path.islink(os.path.join(directory, d))]:
+            full = os.path.join(directory, name)
+            rel = os.path.relpath(full, repo).replace(os.sep, '/')
+            if rel in tracked_paths:
+                continue
+            target = os.path.join(dest, rel)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.copy2(full, target, follow_symlinks=False)
+            copied += 1
+    return copied
+
+
 def snapshot(repo, commit, assets, dest):
     """Copy each asset into dest: tracked paths from `commit`, others from disk.
 
@@ -51,7 +90,12 @@ def snapshot(repo, commit, assets, dest):
             if matched:
                 for entry in matched:
                     _write_blob(repo, entry, dest, entry[3], warnings)
-                sources.append({'asset': asset, 'from': 'git', 'commit': commit, 'files': len(matched)})
+                # A tracked directory can also hold untracked or ignored files (large benchmarks).
+                untracked = _copy_untracked(repo, norm, {e[3] for e in matched}, dest)
+                if untracked:
+                    warnings.append('%d untracked file(s) under %s were copied from your working tree' % (untracked, asset))
+                sources.append({'asset': asset, 'from': 'git', 'commit': commit, 'files': len(matched),
+                                'untracked_files': untracked})
                 continue
             source = os.path.join(repo, asset)
             origin = 'worktree'

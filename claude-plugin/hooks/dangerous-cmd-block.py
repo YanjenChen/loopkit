@@ -61,8 +61,12 @@ def is_force_arg(arg):
     return arg == '-f' or arg.startswith('--force')
 
 
-def command_label(command):
-    """Name of a destructive command in `command`, or None."""
+def command_label(command, rm_allowed=None):
+    """Name of a destructive command in `command`, or None.
+
+    rm_allowed(args) may accept a recursive forced removal, e.g. one confined to
+    the agent worktree.
+    """
     for words in shell_segments(command):
         executable = js_basename(words[0] if words else '')
         rest = words[1:]
@@ -72,7 +76,7 @@ def command_label(command):
             flags = ''.join(word for word in rest if word.startswith('-'))
             recursive = re.search(r'[rR]', flags) is not None or '--recursive' in flags
             forced = 'f' in flags or '--force' in flags
-            if recursive and forced:
+            if recursive and forced and not (rm_allowed and rm_allowed(rest)):
                 return 'recursive forced removal'
         if executable != 'git':
             continue
@@ -160,8 +164,24 @@ READ_ONLY_TOOLS = {
 }
 _FIND_WRITES = {'-delete', '-exec', '-execdir', '-ok', '-okdir', '-fprint', '-fprint0', '-fprintf', '-fls'}
 _USER_ONLY_LOOPKIT = {'request-eval', 'promote', 'adopt', 'run', 'shim'}
-_EMBEDDED_PATH = re.compile(r'(?:~|/)[^\s\'",;()<>|&`=]*')
-_REDIRECTS = ('>', '>>', '>|')
+
+
+def loopkit_subcommand(args):
+    """The subcommand of a loopkit invocation, skipping `--run NAME`."""
+    skip = False
+    for arg in args:
+        if skip:
+            skip = False
+        elif arg == '--run':
+            skip = True
+        elif not arg.startswith('-'):
+            return arg
+    return None
+# An absolute path at the start of a token or after = : quote ( , or whitespace, e.g. inside
+# `python3 -c "open('/path')"`. A slash inside a relative path (lib/src/x) does not count.
+_EMBEDDED_PATH = re.compile(r'(?:^|(?<=[=:\'"(,\s]))(?:~|/)[^\s\'",;()<>|&`=]*')
+# Redirect tokens followed by a file target. Descriptor duplications (2>&1) are one token.
+_REDIRECTS = ('>', '>>', '>|', '&>', '&>>', '>&')
 
 
 def is_read_only(executable, args):
@@ -201,6 +221,20 @@ class Guard(object):
             return False
         return any(self._under(path, root) for root in self.protected)
 
+    def rm_inside_agent(self, args, cwd):
+        """True when every rm target lies strictly inside the agent worktree and is not protected."""
+        targets = [a for a in args if not a.startswith('-')]
+        if not targets:
+            return False
+        for target in targets:
+            path = os.path.expanduser(target)
+            path = os.path.realpath(path if os.path.isabs(path) else os.path.join(cwd, path))
+            if path == self.agent or not path.startswith(self.agent + '/'):
+                return False
+            if any(self._under(path, p) for p in self.inside_agent_protected):
+                return False
+        return True
+
     def path_candidates(self, token):
         """Paths a token may refer to: embedded absolute paths, or the token itself when it looks relative."""
         found = [m.group(0) for m in _EMBEDDED_PATH.finditer(token) if len(m.group(0)) > 1]
@@ -230,7 +264,7 @@ class Guard(object):
                     return problem
                 continue
             if executable == 'loopkit':
-                sub = next((a for a in args if not a.startswith('-')), None)
+                sub = loopkit_subcommand(args)
                 if sub in _USER_ONLY_LOOPKIT:
                     return 'loopkit %s is for the user only, not the run session' % sub
                 continue
@@ -273,7 +307,7 @@ def read_only_problem(command):
                 return problem
             continue
         if executable == 'loopkit':
-            sub = next((a for a in args if not a.startswith('-')), None)
+            sub = loopkit_subcommand(args)
             if sub not in _LOOPKIT_READ or '--ack' in args:
                 return 'loopkit %s is not a read-only command' % sub
             continue
@@ -320,7 +354,7 @@ def main():
               'end with background work. Long scoring already runs detached: use loopkit evaluate / wait.')
     command = prop(tool_input, 'command')
     command = command if isinstance(command, str) else ''
-    label = command_label(command)
+    label = command_label(command, lambda args: guard.rm_inside_agent(args, cwd))
     if label:
         log(HOOK_NAME, {'action': 'block', 'matched': label})
         block('BLOCKED (loopkit run): destructive command (%s).%s' % (label, hint))

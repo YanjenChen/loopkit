@@ -138,7 +138,8 @@ proposal format below before you implement it. `--proposed-by` is `agent`.
 `loopkit monitor push` writes the monitor's new documents to JSON files and prints a
 `MONITOR <url>` line and a `WRITES <json>` line (or says the run has no monitor). Call the
 Artifact tool with `action: "write_db"`, `url`: that URL, `db_op: "batch"`, and `writes`:
-that JSON list, unchanged. Then run the `loopkit monitor ack <seq>` command it printed.
+that JSON list, unchanged. Then run the `loopkit monitor ack <seq>` command it printed. If it
+also printed a `MORE` line, repeat push, write and ack until it no longer does.
 
 The monitor only displays the ledger. If the push fails, continue: the next iteration
 pushes the missing records again.

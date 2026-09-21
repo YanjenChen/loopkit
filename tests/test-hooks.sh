@@ -180,13 +180,22 @@ run_hook "scout-block.py" '{"tool_name":"Bash","tool_input":{"command":"rustc te
 assert_exit 0 "scout-block: allows build tool (rustc)"
 
 run_hook "scout-block.py" '{"tool_name":"Read","tool_input":{"file_path":"dist/bundle.js"}}'
-assert_exit 2 "scout-block: blocks dist directory"
+assert_exit 0 "scout-block: build outputs (dist) are the run's own work and stay readable"
 
 run_hook "scout-block.py" '{"tool_name":"Read","tool_input":{"file_path":"coverage/index.html"}}'
-assert_exit 2 "scout-block: blocks coverage directory"
+assert_exit 0 "scout-block: coverage output stays readable"
 
 run_hook "scout-block.py" '{"tool_name":"Read","tool_input":{"file_path":"build/output.o"}}'
-assert_exit 2 "scout-block: blocks build directory"
+assert_exit 0 "scout-block: build directory stays readable"
+
+run_hook "scout-block.py" '{"tool_name":"Bash","tool_input":{"command":"./build/bin/placer --bench adaptec1"}}'
+assert_exit 0 "scout-block: running a built program is allowed"
+
+run_hook "scout-block.py" '{"tool_name":"Bash","tool_input":{"command":"tail -n 50 train.log"}}'
+assert_exit 0 "scout-block: logs stay readable"
+
+run_hook "scout-block.py" '{"tool_name":"Bash","tool_input":{"command":"./node_modules/.bin/tsc -p ."}}'
+assert_exit 0 "scout-block: running a tool from node_modules is allowed"
 
 run_hook "scout-block.py" '{"tool_name":"Read","tool_input":{"file_path":"node_modules\\express\\index.js"}}'
 assert_exit 2 "scout-block: normalizes Windows path separators"
@@ -316,7 +325,7 @@ cmd_blocked "git checkout . " "git checkout ."
 cmd_blocked "git restore ." "git restore ."
 cmd_blocked "rm -rf ." "rm -rf ."
 cmd_blocked "push --force origin" "push --force"
-cmd_blocked "/bin/rm -r -f build" "path-qualified rm -r -f"
+cmd_blocked "/bin/rm -r -f /data" "path-qualified rm -r -f"
 cmd_blocked "git -C /tmp reset --hard HEAD" "-C cannot hide a hard reset"
 cmd_blocked "git --no-pager clean -fd" "display options cannot hide a forced clean"
 cmd_blocked $'echo ok\ngit push --force origin main' "a newline cannot hide a force push"
@@ -335,6 +344,11 @@ cmd_blocked 'echo `git reset --hard HEAD`' "backticks"
 cmd_blocked "echo ok & git reset --hard HEAD" "background operator"
 cmd_blocked $'cat <<\'TEXT\'\nhello\nTEXT\ngit reset --hard HEAD' "a command after a heredoc"
 cmd_allowed "echo rm -rf /" "echoed text"
+cmd_allowed "rm -rf build" "rm -rf of a directory inside the agent worktree"
+cmd_allowed "rm -rf build/cache src/__pycache__" "rm -rf of several paths inside the agent worktree"
+cmd_blocked "rm -rf .loopkit" "rm -rf of the agent worktree's .loopkit/"
+cmd_blocked "rm -rf ../eval" "rm -rf outside the agent worktree"
+cmd_blocked "rm -rf $USER_REPO/build" "rm -rf in the user's repo"
 cmd_allowed "rm -r safe && echo --force" "flags from separate commands"
 cmd_allowed "true # ; git reset --hard HEAD" "comment text"
 cmd_allowed $'cat <<\'TEXT\'\ngit reset --hard HEAD\nTEXT' "heredoc body text"
@@ -378,12 +392,16 @@ cmd_allowed "sed s/a/b/ $USER_REPO/README.md" "sed without -i"
 cmd_allowed "touch src/new.py" "writing inside the agent worktree"
 cmd_allowed "python3 -m py_compile src/app.py" "running tools inside the agent worktree"
 cmd_allowed "cat $RUN_DIR/work/precheck.txt" "reading run data"
+cmd_blocked "make &> $USER_REPO/build.txt" "&> into the user's repo"
+cmd_allowed "make 2>&1 | tail -n 20" "2>&1 is not a command separator"
+cmd_allowed "mkdir -p cache$USER_REPO/x" "a relative path that merely contains the repo path"
 
 # loopkit commands: the run session may not act as the user.
 cmd_blocked "loopkit promote h001" "loopkit promote"
 cmd_blocked "loopkit request-eval HEAD" "loopkit request-eval"
 cmd_blocked "loopkit adopt c003" "loopkit adopt"
 cmd_blocked "loopkit run remove r001 --yes" "loopkit run remove"
+cmd_blocked "loopkit --run r001 promote h001" "loopkit --run NAME promote"
 cmd_allowed "loopkit summary" "loopkit summary"
 cmd_allowed "loopkit record --idea 'x' --proposed-by agent --learned 'see $USER_REPO'" "loopkit record with a path in its text"
 
@@ -414,6 +432,10 @@ run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst "touch src/
 assert_exit 2 "dangerous-cmd-block: an analyst cannot write inside the agent worktree"
 run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:decider "grep -rn foo src | head")"
 assert_exit 0 "dangerous-cmd-block: the decider can search"
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst "grep -rn foo src 2>&1 | head")"
+assert_exit 0 "dangerous-cmd-block: an analyst can merge stderr into a pipe"
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst "loopkit --run r001 summary 2>&1")"
+assert_exit 0 "dangerous-cmd-block: an analyst can run loopkit summary with --run and 2>&1"
 run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst-web "loopkit lineage c000")"
 assert_exit 0 "dangerous-cmd-block: an analyst can query loopkit"
 run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:critic "loopkit export --ack 5")"

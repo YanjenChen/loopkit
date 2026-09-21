@@ -20,23 +20,20 @@ from ignore import ignore  # noqa: E402
 
 HOOK_NAME = 'scout-block'
 
+# Dependency, cache and VCS trees. Build outputs and logs (build/, dist/, out/, *.log) are
+# not listed: in a run they are the agent's own work products, which it must be able to run
+# and read.
 BASELINE_PATTERNS = [
     'node_modules/',
     '__pycache__/',
     '.git/',
-    'dist/',
-    'build/',
-    'out/',
-    'coverage/',
     '.next/',
     '.nuxt/',
     'venv/',
     '.venv/',
-    'env/',
     '.terraform/',
     '.aws/',
     '.ssh/',
-    '*.log',
 ]
 
 
@@ -115,7 +112,8 @@ def extract_path_tokens(command):
             continue
         if executable in ('echo', 'printf'):
             continue
-        candidates = segment_tokens[2:] if executable in ('grep', 'sed', 'awk') else segment_tokens
+        # The program being run is not "read" (./build/bin/placer); its arguments are inspected.
+        candidates = segment_tokens[2:] if executable in ('grep', 'sed', 'awk') else segment_tokens[1:]
         for token in candidates:
             if not is_remote_operand(token):
                 tokens.append(token)

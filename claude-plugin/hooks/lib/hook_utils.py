@@ -354,6 +354,16 @@ def tokenize_shell_checked(command):
             i = line_end - 1
             line_start = True
             continue
+        if not quote and char == '&' and command[i + 1:i + 2] == '>':
+            # `&>file` and `&>>file` redirect stdout and stderr; they are not separators.
+            push_token()
+            redirect = '&>'
+            i += 1
+            if command[i + 1:i + 2] == '>':
+                i += 1
+                redirect += '>'
+            tokens.append(redirect)
+            continue
         if not quote and char in ('\n', ';', '|', '&', '(', ')'):
             push_segment()
             if char == '|' and command[i + 1:i + 2] == '|':
@@ -368,6 +378,14 @@ def tokenize_shell_checked(command):
             while command[i + 1:i + 2] == char:
                 i += 1
                 redirect += command[i]
+            if command[i + 1:i + 2] == '&':
+                # `2>&1`, `>&2`, `<&3`, `>&-` duplicate a descriptor: keep it one token.
+                # `>& file` (no descriptor) sends both streams to a file.
+                i += 1
+                redirect += '&'
+                while command[i + 1:i + 2] and command[i + 1] in '0123456789-':
+                    i += 1
+                    redirect += command[i]
             tokens.append(redirect)
             if redirect == '<<':
                 next_index = i + 1
@@ -519,24 +537,37 @@ def _run_from_marker(start):
 def _run_from_project_key(key):
     """Match ~/.claude/projects/<key>/ (the session's start directory, sanitized) to a run's agent worktree."""
     from loopkit import paths as lk_paths
-    data = lk_paths.data_root()
-    try:
-        repos = sorted_listdir(data)
-    except OSError:
-        return None
-    for repo in repos:
+    # Hooks receive CLAUDE_PLUGIN_DATA; the CLI derives the same directory itself. Scan both,
+    # so a mismatch can never hide a run from the guards.
+    roots = []
+    for root in (lk_paths.data_root(), _derived_data_root()):
+        if root and root not in roots:
+            roots.append(root)
+    for data in roots:
         try:
-            names = sorted_listdir(os.path.join(data, repo))
+            repos = sorted_listdir(data)
         except OSError:
             continue
-        for name in names:
-            run_paths = lk_paths.RunPaths(os.path.join(data, repo, name))
-            if not run_paths.exists():
+        for repo in repos:
+            try:
+                names = sorted_listdir(os.path.join(data, repo))
+            except OSError:
                 continue
-            for path in {run_paths.agent, os.path.realpath(run_paths.agent)}:
-                if _PROJECT_KEY.sub('-', path) == key:
-                    return run_paths
+            for name in names:
+                run_paths = lk_paths.RunPaths(os.path.join(data, repo, name))
+                if not run_paths.exists():
+                    continue
+                for path in {run_paths.agent, os.path.realpath(run_paths.agent)}:
+                    if _PROJECT_KEY.sub('-', path) == key:
+                        return run_paths
     return None
+
+
+def _derived_data_root():
+    from loopkit import paths as lk_paths
+    if os.environ.get('LOOPKIT_DATA_DIR'):
+        return None
+    return os.path.join(lk_paths.claude_config_dir(), 'plugins', 'data', lk_paths.plugin_data_id())
 
 
 def run_context(stdin):

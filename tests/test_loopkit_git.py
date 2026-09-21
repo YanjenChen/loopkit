@@ -82,6 +82,25 @@ class GitopsTest(TempDirTest):
         self.assertFalse(os.path.exists(marker))
 
 
+class SubmoduleTest(TempDirTest):
+    def test_stale_gitmodules_entry_and_uninitialized_submodule(self):
+        repo = self.make_repo()
+        write(repo, '.gitmodules', '[submodule "gone"]\n\tpath = vendor/gone\n\turl = https://example.invalid/gone.git\n')
+        git(repo, 'add', '.gitmodules')
+        git(repo, 'commit', '-qm', 'stale submodule entry')
+        head = git(repo, 'rev-parse', 'HEAD')
+        git(repo, 'update-index', '--add', '--cacheinfo', '160000,%s,vendor/lib' % head)
+        write(repo, '.gitmodules', '[submodule "gone"]\n\tpath = vendor/gone\n\turl = https://example.invalid/gone.git\n'
+              '[submodule "lib"]\n\tpath = vendor/lib\n\turl = https://example.invalid/lib.git\n')
+        git(repo, 'add', '.gitmodules')
+        git(repo, 'commit', '-qm', 'uninitialized submodule')
+        wt = os.path.join(self.tmp, 'wt')
+        gitops.worktree_add(repo, wt, git(repo, 'rev-parse', 'HEAD'), 'test')
+        self.assertEqual(gitops.gitlinks(wt), ['vendor/lib'])
+        warnings = gitops.update_submodules(wt, gitops.common_dir(repo))
+        self.assertEqual(warnings, ['submodule vendor/lib is not initialized in your checkout; it stays empty in the run'])
+
+
 class ScopeTest(TempDirTest):
     def test_glob(self):
         allowed = scope.Scope(['src/**/*.cu', '**/CMakeLists.txt', 'cmake/', '*.h'], ['src/third_party/**'])
@@ -190,6 +209,22 @@ class AssetsTest(TempDirTest):
         with self.assertRaises(LoopkitError):
             assets.snapshot(repo, 'HEAD', ['nope/'], os.path.join(self.tmp, 'assets'))
 
+    def test_untracked_files_in_a_tracked_directory_are_copied(self):
+        repo = self.make_repo(files={'.gitignore': 'bench/*.big\n', 'bench/small.txt': 's'})
+        write(repo, 'bench/design.big', 'large benchmark')
+        head = git(repo, 'rev-parse', 'HEAD')
+        dest = os.path.join(self.tmp, 'assets')
+        sources, warnings = assets.snapshot(repo, head, ['bench/'], dest)
+        self.assertTrue(os.path.isfile(os.path.join(dest, 'bench/design.big')))
+        self.assertEqual(sources[0]['untracked_files'], 1)
+        self.assertTrue(any('untracked' in w for w in warnings))
+
+    def test_missing(self):
+        repo = self.make_repo(files={'bench/a.txt': 'a'})
+        write(repo, 'local.txt', 'x')
+        self.assertEqual(assets.missing(repo, ['bench/', 'bench/a.txt', 'local.txt', 'nope', '/no/such/file']),
+                         ['nope', '/no/such/file'])
+
 
 class RunFixture(TempDirTest):
     """A minimal run directory created by hand, without the CLI."""
@@ -283,6 +318,12 @@ class IntegrityTest(RunFixture):
     def test_queue_and_request_refs(self):
         self.make_run()
         write_json_atomic(os.path.join(self.paths.queue, 'req-0001.json'), {'kind': 'eval', 'sha': self.head})
+        # Caught between request-eval's file write and its ref: re-pinned, not a problem.
+        report = self.check()
+        self.assertEqual((report.problems, report.fixed), ([], ['pinned queued request 1']))
+        self.assertEqual(git(self.repo, 'rev-parse', 'refs/evolve/r001/req/1'), self.head)
+        git(self.repo, 'update-ref', '-d', 'refs/evolve/r001/req/1')
+        write_json_atomic(os.path.join(self.paths.queue, 'req-0001.json'), {'kind': 'eval', 'sha': '1' * 40})
         self.assertIn('queued request 1 has no pinning ref', self.check().problems)
         os.unlink(os.path.join(self.paths.queue, 'req-0001.json'))
         git(self.repo, 'update-ref', 'refs/evolve/r001/req/7', self.head)

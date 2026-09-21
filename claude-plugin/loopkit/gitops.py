@@ -7,6 +7,7 @@ code during framework operations.
 import os
 import shutil
 import subprocess
+import time
 
 from .util import LoopkitError
 
@@ -206,7 +207,9 @@ def diff_text(cwd, old, new, stat=False):
 # -- worktrees -------------------------------------------------------------
 
 def worktree_add(repo, path, commit, lock_reason):
-    run(['worktree', 'add', '--detach', '--lock', '--reason', lock_reason, path, commit], repo)
+    # `worktree add --reason` needs git 2.33; lock separately to keep git 2.31 working.
+    run(['worktree', 'add', '--detach', path, commit], repo)
+    run(['worktree', 'lock', '--reason', lock_reason, path], repo)
 
 
 def worktree_remove(repo, path):
@@ -228,18 +231,52 @@ def submodules(worktree):
     return pairs
 
 
-def update_submodules(worktree, common):
-    """Check out each submodule at the commit the index records.
+def gitlinks(worktree):
+    """Paths the worktree's index records as submodules (mode 160000)."""
+    data = run(['ls-files', '-s', '-z'], worktree).stdout
+    paths = []
+    for item in data.split(b'\0'):
+        if item.startswith(b'160000 '):
+            paths.append(item.partition(b'\t')[2].decode('utf-8', 'surrogateescape'))
+    return paths
 
-    Submodules the main checkout already initialized are cloned from its
-    .git/modules copy, so no network access is needed.
+
+def update_submodules(worktree, common):
+    """Check out each submodule at the commit the index records; returns warnings.
+
+    Only submodules the user's own checkout initialized are handled, cloned from
+    its .git/modules copy so no network access is needed. A .gitmodules entry
+    without a gitlink is ignored, and one submodule failing does not stop the
+    others.
     """
+    warnings = []
+    links = set(gitlinks(worktree))
     for name, path in submodules(worktree):
+        if path not in links:
+            continue
         local = os.path.join(common, 'modules', name)
-        config = {}
-        if os.path.isdir(local):
-            config = {'submodule.%s.url' % name: local, 'protocol.file.allow': 'always'}
-        run(['submodule', 'update', '--init', '--recursive', '--force', '--', path], worktree, config=config)
+        if not os.path.isdir(local):
+            warnings.append('submodule %s is not initialized in your checkout; it stays empty in the run' % path)
+            continue
+        config = {'submodule.%s.url' % name: local, 'protocol.file.allow': 'always'}
+        proc = run(['submodule', 'update', '--init', '--recursive', '--force', '--', path], worktree,
+                   config=config, check=False)
+        if proc.returncode != 0:
+            detail = proc.stderr.decode('utf-8', 'replace').strip().splitlines()
+            warnings.append('submodule %s could not be checked out: %s' % (path, detail[-1] if detail else 'error'))
+    return warnings
+
+
+def remove_stale_index_lock(worktree, min_age_s=0):
+    """Delete an index.lock left by a killed git process. Call only while no git runs in worktree."""
+    path = os.path.join(git_dir(worktree), 'index.lock')
+    try:
+        if time.time() - os.path.getmtime(path) >= min_age_s:
+            os.unlink(path)
+            return True
+    except OSError:
+        pass
+    return False
 
 
 def reset_worktree(worktree, commit, common, keep=(), clean_ignored=False):

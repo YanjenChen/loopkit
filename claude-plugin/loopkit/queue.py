@@ -3,7 +3,8 @@
 Requests are written by the user (request-eval, promote) and consumed by the
 run at the head of the next iteration. Each file is written atomically. An
 eval request pins its commit with refs/evolve/<run>/req/<n> so gc cannot drop
-it; the ref is created before the file becomes visible.
+it. The file is written first and the ref right after; the integrity check
+re-pins a queued request whose ref is missing, so the order never races.
 """
 
 import os
@@ -75,11 +76,21 @@ def request_eval(paths, repo_cwd, commit, note=None):
             raise LoopkitError('%s is already queued as request %d' % (sha[:7], request['n']))
     ref = gitops.ref_containing(repo_cwd, sha)
     number = _next_number(paths)
-    gitops.create_ref(repo_cwd, req_ref(info['run'], number), sha)
     data = {'kind': 'eval', 'sha': sha, 'ref': ref, 'note': note or '', 'requested': now_iso()}
     _write(paths, number, data)
+    pin(repo_cwd, info['run'], number, sha)
     data['n'] = number
     return data
+
+
+def pin(repo_cwd, run_name, number, sha):
+    """Create the request's pinning ref; an existing ref for the same commit is fine."""
+    ref = req_ref(run_name, number)
+    try:
+        gitops.create_ref(repo_cwd, ref, sha)
+    except LoopkitError:
+        if gitops.list_refs(repo_cwd, ref).get(ref) != sha:
+            raise
 
 
 def request_promote(paths, candidate_id):

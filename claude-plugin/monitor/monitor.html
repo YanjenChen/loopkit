@@ -238,19 +238,32 @@
   .node-human { stroke-dasharray: 2.5 2; }
 
   /* Candidate list */
-  .cand { border-top: 1px solid var(--line); }
+  #list { min-width: 0; }
+  .cand { border-top: 1px solid var(--line); min-width: 0; }
   .cand:first-child { border-top: none; }
   .cand > summary {
+    display: block;
     list-style: none;
-    display: flex;
-    gap: 10px;
-    align-items: baseline;
     padding: 7px 4px;
     cursor: pointer;
-    min-width: 0;
   }
   .cand > summary::-webkit-details-marker { display: none; }
-  .cand > summary code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .cand > summary::marker { content: ""; }
+  /* The flex row lives inside summary: WebKit does not lay out summary itself as a flex box. */
+  .cand .sum { display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+  .cand .sum code {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @media (max-width: 640px) {
+    /* On a phone, show the whole ITER line, wrapped, instead of an ellipsis. */
+    .cand .sum { align-items: flex-start; }
+    .cand .sum code { white-space: normal; overflow-wrap: anywhere; line-height: 1.45; }
+  }
   .cand[open] > summary { background: var(--sunken); border-radius: 4px; }
   .cand.flash > summary { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
   .chip {
@@ -941,7 +954,9 @@
     const frag = document.createDocumentFragment();
     for (const c of items) {
       const el = h('details', { class: 'cand', id: 'cand-' + c.id, 'data-id': c.id, open: S.open.has(c.id) },
-        h('summary', {}, h('span', { class: 'chip ' + c.status, text: c.by === 'human' && m.promoted.has(c.id) ? 'promoted' : c.status }), h('code', { title: lineOf(c), text: lineOf(c) })));
+        h('summary', {}, h('span', { class: 'sum' },
+          h('span', { class: 'chip ' + c.status, text: c.by === 'human' && m.promoted.has(c.id) ? 'promoted' : c.status }),
+          h('code', { title: lineOf(c), text: lineOf(c) }))));
       el.addEventListener('toggle', () => {
         if (el.open) { S.open.add(c.id); fillDetail(el); } else S.open.delete(c.id);
       });

@@ -112,11 +112,17 @@ def check(paths, info, records, ledger_problems, repo_cwd, fix=True):
                 queue_mod.mark_done(paths, request)
                 report.fixed.append('finished cleanup of request %d' % request['n'])
         elif pinned is None:
-            report.problems.append('queued request %d has no pinning ref' % request['n'])
+            # request-eval writes the file, then the ref: re-pin a request caught in between.
+            sha = request.get('sha') or ''
+            if fix and gitops.run(['cat-file', '-e', '%s^{commit}' % sha], repo_cwd, check=False).returncode == 0:
+                queue_mod.pin(repo_cwd, run, request['n'], sha)
+                report.fixed.append('pinned queued request %d' % request['n'])
+            else:
+                report.problems.append('queued request %d has no pinning ref' % request['n'])
         elif pinned[1] != request.get('sha'):
             report.problems.append('queued request %d does not match its pinning ref' % request['n'])
     for key, (name, sha) in sorted(req_refs.items()):
-        # A request-eval was interrupted before its file appeared, or cleanup was: drop the ref.
+        # A request's cleanup was interrupted after its file moved to done/: drop the ref.
         if fix:
             gitops.delete_ref(repo_cwd, name, sha)
             report.fixed.append('removed stale request ref %s' % key)

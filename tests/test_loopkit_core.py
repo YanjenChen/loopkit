@@ -6,7 +6,7 @@ import unittest
 
 from loopkit_testutil import TempDirTest, config
 
-from loopkit import batch, config as config_mod, ledger as ledger_mod, pareto
+from loopkit import batch, config as config_mod, ledger as ledger_mod, monitor, pareto
 from loopkit.util import fmt5, fmt_pct
 
 
@@ -281,6 +281,27 @@ class BatchTest(unittest.TestCase):
         records = self._records(cand(3, 'c001', 'KEPT', 900.0, 10.0, batch_no=1), cand(4, 'h001', 'OBSERVED', 1, 1, by='human', batch_no=None),
                                 cand(5, 'c002', 'FAILED', 0, 0, batch_no=1), cand(6, 'c003', 'KEPT', 1, 1, batch_no=2))
         self.assertEqual(batch.iterations(records, 1), 2)
+
+
+class MonitorTest(unittest.TestCase):
+    def test_large_extra_is_slimmed_to_fit_a_document(self):
+        records = []
+        for seq in range(1, monitor.CHUNK + 1):
+            records.append({'seq': seq, 'type': 'candidate', 'id': 'c%03d' % seq, 'prev': 'x' * 64,
+                            'idea': 'i' * 900, 'files': ['src/f%d.cu' % i for i in range(50)],
+                            'extra': {'m%03d' % i: 'v' * 100 for i in range(400)},
+                            'constraints': {'legal': {'pass': True, 'detail': 'd' * 5000}}})
+        doc = monitor.chunk_doc(records)
+        self.assertLess(monitor._size(doc), monitor.DOC_LIMIT)
+        first = doc['records'][0]
+        self.assertNotIn('prev', first)
+        self.assertTrue(first['extra_truncated'])
+        self.assertLessEqual(len(first['idea']), 500)
+        self.assertLessEqual(len(first['constraints']['legal']['detail']), 200)
+
+    def test_small_record_is_kept(self):
+        record = {'seq': 1, 'type': 'candidate', 'id': 'c000', 'prev': 'x', 'extra': {'gpu_mem_mb': 5120}}
+        self.assertEqual(monitor.slim(record), {'seq': 1, 'type': 'candidate', 'id': 'c000', 'extra': {'gpu_mem_mb': 5120}})
 
 
 if __name__ == '__main__':

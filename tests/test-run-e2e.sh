@@ -154,6 +154,19 @@ lacks "invalid_result" "trial result is valid"
 # ---------------------------------------------------------------------------
 printf '\n--- run create ---\n'
 
+cp "$REPO/.loopkit/config.json" "$TMP/config.json"
+python3 - "$REPO/.loopkit/config.json" <<'PY'
+import json, sys
+config = json.load(open(sys.argv[1]))
+config['eval_assets'].append('bench/missing.txt')
+json.dump(config, open(sys.argv[1], 'w'))
+PY
+lk "$REPO" run create
+has "eval assets not found in the repository or on disk: bench/missing.txt" "a missing eval asset is caught before anything is created"
+same "$(git -C "$REPO" worktree list | wc -l)" "1" "a failed create leaves no worktrees"
+same "$(git -C "$REPO" log -1 --format=%s)" "toy placer" "a failed create commits nothing"
+cp "$TMP/config.json" "$REPO/.loopkit/config.json"
+
 lk "$REPO" run create --gpu 3 --monitor-url https://example.invalid/monitor
 code_is 0 "run create exits 0"
 has "RUN r001 created (committed .loopkit/ on main)" "run create commits .loopkit/ as c000"
@@ -298,7 +311,10 @@ has "kept by proposer:" "summary includes pattern analysis"
 printf '\n--- crash recovery and PENDING ---\n'
 
 set_params "$AGENT" 1.1 0.02
+touch "$(git -C "$RUN_DIR/eval" rev-parse --absolute-git-dir)/index.lock"
 lk "$AGENT" evaluate
+has "RESULT REVERTED" "a stale index.lock in the eval worktree does not wedge scoring"
+lacks "invalid_result" "scoring after a stale index.lock is valid"
 git -C "$REPO" update-ref refs/evolve/r001/c007 "$HUMAN_SHA"
 lk "$AGENT" record --idea "faster on top of human" --proposed-by agent --learned "hypothesis: sleep; result: confirmed; evidence: runtime"
 has "ITER 7/8 | c007<-h001" "record replaces a ref left by an interrupted record"
@@ -316,9 +332,15 @@ lk "$AGENT" record --idea "x" --proposed-by agent --learned "x"
 has "scoring is still running" "record waits for scoring"
 lk "$AGENT" wait --max-wait 60
 has "RESULT REVERTED" "wait delivers the result"
+cp "$RUN_DIR/work/checkout.json" "$TMP/checkout.json"
 lk "$AGENT" record --idea "slow version" --proposed-by agent --learned "hypothesis: sleep 3; result: disproven; evidence: slow"
 has "ITER 8/8" "eighth iteration recorded"
 has "LOOPKIT-STOP | max_iters 8/8" "max_iters stops the batch"
+CANDIDATES_BEFORE="$(grep -c '"type":"candidate"' "$RUN_DIR/ledger.jsonl")"
+cp "$TMP/checkout.json" "$RUN_DIR/work/checkout.json"
+lk "$AGENT" record --idea "slow version" --proposed-by agent --learned "again"
+has "NOTE: this iteration was already recorded as c008" "a repeated record is recognized"
+same "$(grep -c '"type":"candidate"' "$RUN_DIR/ledger.jsonl")" "$CANDIDATES_BEFORE" "a repeated record adds nothing to the ledger"
 
 lk "$AGENT" batch start --text "$GOAL" --conditions '{"max_iters": 8}'
 has "already stopped" "the same prompt after STOP stays stopped"
@@ -405,6 +427,12 @@ chmod u+w "$R2/eval-assets/bench" "$R2/eval-assets/bench/marker"
 echo "tampered" > "$R2/eval-assets/bench/marker"
 lk "$R2/agent" batch start --text "go" --conditions '{"max_iters": 1}'
 has "LOOPKIT-STOP | integrity: eval-assets changed: bench/marker" "tampered assets stop the run"
+
+mkdir -p "$(dirname "$RUN_DIR")/r009"
+git -C "$REPO" worktree add -q --detach "$(dirname "$RUN_DIR")/r009/agent" HEAD
+lk "$REPO" run remove r009 --yes
+has "REMOVED incomplete run r009" "run remove cleans up a run left half-built"
+[ ! -d "$(dirname "$RUN_DIR")/r009" ] && pass "the half-built run directory is gone" || fail "the half-built run directory is gone"
 
 lk "$REPO" run list
 has "r001 |" "run list shows r001"

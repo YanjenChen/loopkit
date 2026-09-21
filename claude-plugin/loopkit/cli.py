@@ -34,7 +34,12 @@ def cmd_run_list(args):
 def cmd_run_remove(args):
     if not args.yes:
         raise LoopkitError('removing a run deletes its worktrees, refs and ledger; pass --yes to confirm')
-    run_mod.resolve(os.getcwd(), args.name).remove()
+    try:
+        run = run_mod.resolve(os.getcwd(), args.name)
+    except LoopkitError:
+        run_mod.remove_partial(os.getcwd(), args.name)
+        return
+    run.remove()
 
 
 def session_run(args):
@@ -88,13 +93,15 @@ def cmd_monitor_push(args):
     if not url:
         print('MONITOR none: this run has no monitor')
         return
-    writes, latest, pushed = monitor.push_plan(run)
-    if latest <= pushed:
-        print('MONITOR up to date (seq %d); pushing the status only' % latest)
+    writes, ack, pushed, more = monitor.push_plan(run)
+    if ack <= pushed:
+        print('MONITOR up to date (seq %d); pushing the status only' % ack)
     print('MONITOR %s' % url)
     print('WRITES %s' % json.dumps(writes))
     print('NEXT: Artifact action "write_db", url above, db_op "batch", writes above; then `loopkit monitor ack %d`'
-          % latest)
+          % ack)
+    if more:
+        print('MORE: further records remain; run `loopkit monitor push` again after the ack')
 
 
 def cmd_monitor_ack(args):

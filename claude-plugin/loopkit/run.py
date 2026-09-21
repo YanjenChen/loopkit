@@ -31,9 +31,9 @@ def stop_line(reason):
 # ---------------------------------------------------------------------------
 
 def _next_run_name(common):
-    names = {p.name for p in paths_mod.list_runs(common)}
+    base = paths_mod.repo_dir(common)
     number = 1
-    while 'r%03d' % number in names:
+    while os.path.exists(os.path.join(base, 'r%03d' % number)):
         number += 1
     return 'r%03d' % number
 
@@ -91,21 +91,47 @@ def create(cwd, name=None, gpu=None, knowledge=None, monitor_url=None, allow_dan
         raise LoopkitError('run %s already exists at %s' % (name, run_paths.dir))
     if gitops.list_refs(repo, 'refs/evolve/%s/' % name):
         raise LoopkitError('refs/evolve/%s/ already has refs; pick another run name' % name)
+    missing = assets.missing(repo, config['eval_assets'])
+    if missing:
+        raise LoopkitError('eval assets not found in the repository or on disk: %s' % ', '.join(missing))
 
     committed = _commit_loopkit_dir(repo, name)
     c000 = gitops.resolve_commit(repo, 'HEAD')
     branch = gitops.symbolic_head(repo)
     gpu = gpu if gpu is not None else (config.get('run') or {}).get('gpu')
 
+    try:
+        info, warnings = _build_run(repo, common, config, name, run_paths, c000, branch, gpu, knowledge, monitor_url)
+    except BaseException:
+        # Nothing half-built may stay behind: a failed create can simply be retried.
+        _remove_run_files(repo, run_paths, name)
+        raise
+
+    say('RUN %s created%s' % (name, ' (committed .loopkit/ on %s)' % report.short_ref(branch) if committed else ''))
+    say('  c000:        %s' % c000)
+    say('  run dir:     %s' % run_paths.dir)
+    say('  agent tree:  %s' % run_paths.agent)
+    say('  gpu:         %s' % (gpu or 'not set'))
+    for warning in warnings:
+        say('WARNING: %s' % warning)
+    job = jobs.create(run_paths, 'baseline', commit=c000)
+    write_json_atomic(os.path.join(run_paths.work, 'baseline.json'), {'job': job.id})
+    jobs.start(job)
+    Run(run_paths).await_baseline(max_wait if max_wait is not None else jobs.max_wait_default())
+    return run_paths
+
+
+def _build_run(repo, common, config, name, run_paths, c000, branch, gpu, knowledge, monitor_url):
     os.makedirs(run_paths.dir)
     for directory in (run_paths.queue, run_paths.build, run_paths.agent_build, run_paths.artifacts, run_paths.jobs):
         os.makedirs(directory, exist_ok=True)
     reason = 'loopkit run %s' % name
     gitops.worktree_add(repo, run_paths.agent, c000, reason)
     gitops.worktree_add(repo, run_paths.eval, c000, reason)
-    gitops.update_submodules(run_paths.agent, common)
+    warnings = gitops.update_submodules(run_paths.agent, common)
     gitops.update_submodules(run_paths.eval, common)
-    sources, warnings = assets.snapshot(repo, c000, config['eval_assets'], run_paths.eval_assets)
+    sources, asset_warnings = assets.snapshot(repo, c000, config['eval_assets'], run_paths.eval_assets)
+    warnings += asset_warnings
     if knowledge:
         shutil.copyfile(knowledge, run_paths.knowledge)
 
@@ -120,7 +146,8 @@ def create(cwd, name=None, gpu=None, knowledge=None, monitor_url=None, allow_dan
         'paths': {'run_dir': run_paths.dir, 'agent': run_paths.agent, 'eval': run_paths.eval,
                   'build': run_paths.build, 'agent_build': run_paths.agent_build, 'eval_assets': run_paths.eval_assets},
         'eval_assets': {'manifest_sha256': sha256_file(run_paths.manifest), 'sources': sources},
-        'git_baseline': integrity.baseline(repo, common),
+        # Taken where the checks run: the eval worktree (config includes can depend on the branch).
+        'git_baseline': integrity.baseline(run_paths.eval, common),
         'monitor_url': monitor_url,
         'plugin_root': paths_mod.plugin_root(),
     }
@@ -137,19 +164,33 @@ def create(cwd, name=None, gpu=None, knowledge=None, monitor_url=None, allow_dan
     write_json_atomic(os.path.join(run_paths.agent, paths_mod.SETTINGS_LOCAL), settings)
     write_json_atomic(os.path.join(run_paths.agent, paths_mod.MARKER),
                       {'run': name, 'run_dir': run_paths.dir, 'repo_id': info['repo']['id']})
+    return info, warnings
 
-    say('RUN %s created%s' % (name, ' (committed .loopkit/ on %s)' % report.short_ref(branch) if committed else ''))
-    say('  c000:        %s' % c000)
-    say('  run dir:     %s' % run_paths.dir)
-    say('  agent tree:  %s' % run_paths.agent)
-    say('  gpu:         %s' % (gpu or 'not set'))
-    for warning in warnings:
-        say('WARNING: %s' % warning)
-    job = jobs.create(run_paths, 'baseline', commit=c000)
-    write_json_atomic(os.path.join(run_paths.work, 'baseline.json'), {'job': job.id})
-    jobs.start(job)
-    Run(run_paths).await_baseline(max_wait if max_wait is not None else jobs.max_wait_default())
-    return run_paths
+
+def _remove_run_files(repo, run_paths, name):
+    """Remove a run's worktrees, refs and directory; works on a half-built run too."""
+    for worktree in (run_paths.agent, run_paths.eval):
+        gitops.worktree_remove(repo, worktree)
+    for ref, sha in gitops.list_refs(repo, 'refs/evolve/%s/' % name).items():
+        gitops.delete_ref(repo, ref, sha)
+    if os.path.isdir(run_paths.dir):
+        for directory, dirnames, filenames in os.walk(run_paths.dir):
+            os.chmod(directory, 0o755)
+            for filename in filenames:
+                path = os.path.join(directory, filename)
+                if not os.path.islink(path):
+                    os.chmod(path, 0o644)
+        shutil.rmtree(run_paths.dir)
+
+
+def remove_partial(cwd, name):
+    """Remove a run directory that has no run.json (left by an interrupted create)."""
+    common = gitops.common_dir(cwd)
+    run_paths = paths_mod.RunPaths(os.path.join(paths_mod.repo_dir(common), name))
+    if not os.path.isdir(run_paths.dir) or run_paths.exists():
+        raise LoopkitError('no run named %s for this repository' % name)
+    _remove_run_files(gitops.toplevel(cwd), run_paths, name)
+    say('REMOVED incomplete run %s (%s)' % (name, run_paths.dir))
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +505,7 @@ class Run(object):
             raise LoopkitError('the two parents must differ')
         self._discard_iteration()
         shas = [evo.candidates[c]['sha'] for c in chosen]
+        gitops.remove_stale_index_lock(self.paths.agent, min_age_s=60)
         gitops.reset_worktree(self.paths.agent, shas[0], self.common, keep=paths_mod.FRAMEWORK_FILES)
         conflicts = gitops.merge_into(self.paths.agent, shas[1]) if second else []
         base_tree = self._snapshot()
@@ -611,6 +653,13 @@ class Run(object):
         job = jobs.Job(self.paths, state['job'])
         if not job.done():
             raise LoopkitError('scoring is still running; run `loopkit wait` first')
+        done = [r for r in ledger_mod.candidates(self.records()) if r.get('job') == job.id]
+        if done:
+            # The ledger line was written but the cleanup after it was interrupted.
+            self._store_artifacts(done[0]['id'], job)
+            self._save_state('checkout.json', None)
+            say('NOTE: this iteration was already recorded as %s' % done[0]['id'])
+            return
         idea = ' '.join((idea or '').split())
         learned = ' '.join((learned or '').split())
         if not idea:
@@ -650,7 +699,7 @@ class Run(object):
             'objectives': result.get('objectives'), 'parent_objectives': parent.get('objectives'),
             'constraints': result.get('constraints'), 'extra': result.get('extra'),
             'status': status, 'reason': reason, 'on_front': status == 'KEPT', 'learned': learned,
-            'duration_s': result.get('duration_s'), 'cost_usd': None,
+            'duration_s': result.get('duration_s'), 'cost_usd': None, 'job': job.id,
         }
         if state.get('conflicts'):
             fields['conflicts'] = state['conflicts']
@@ -683,6 +732,11 @@ class Run(object):
         if not jobs.wait([job], max_wait):
             say('PENDING | c000 is still being scored (job %s) | run: loopkit wait' % job.id)
             return False
+        if 'c000' in ledger_mod.candidate_map(self.records()):
+            # Recorded already; only the cleanup after it was interrupted.
+            self._store_artifacts('c000', job)
+            self._save_state('baseline.json', None)
+            return True
         result = job.result()
         reason = jobs.failed_reason(result)
         c000 = self.info['c000']
@@ -695,7 +749,7 @@ class Run(object):
             'objectives': result.get('objectives'), 'parent_objectives': None,
             'constraints': result.get('constraints'), 'extra': result.get('extra'),
             'status': 'FAILED' if reason else 'BASELINE', 'reason': reason, 'on_front': not reason,
-            'duration_s': result.get('duration_s'), 'cost_usd': None,
+            'duration_s': result.get('duration_s'), 'cost_usd': None, 'job': job.id,
             'warnings': result.get('warnings') or None,
         })
         self._store_artifacts('c000', job)
@@ -851,15 +905,7 @@ class Run(object):
             if not job.done():
                 job.kill()
         repo = self.info['repo']['toplevel']
-        cwd = repo if os.path.isdir(repo) else self.git_cwd
-        for worktree in (self.paths.agent, self.paths.eval):
-            gitops.worktree_remove(cwd, worktree)
-        for ref, sha in gitops.list_refs(cwd, 'refs/evolve/%s/' % self.name).items():
-            gitops.delete_ref(cwd, ref, sha)
-        for directory, dirnames, filenames in os.walk(self.paths.dir):
-            os.chmod(directory, 0o755)
-        os.chmod(self.paths.run_json, 0o644)
-        shutil.rmtree(self.paths.dir)
+        _remove_run_files(repo if os.path.isdir(repo) else self.git_cwd, self.paths, self.name)
         say('REMOVED run %s (worktrees, refs and %s)' % (self.name, self.paths.dir))
 
 
