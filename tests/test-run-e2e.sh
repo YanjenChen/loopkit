@@ -180,6 +180,7 @@ AGENT="$RUN_DIR/agent"
 [ -f "$AGENT/vendor/sublib/lib.txt" ] && pass "submodule checked out in agent worktree" || fail "submodule checked out in agent worktree"
 grep -qF "Edit(/$REPO/**)" "$AGENT/.claude/settings.local.json" && pass "deny rule for the user's repo" || fail "deny rule for the user's repo"
 grep -qF '"CUDA_VISIBLE_DEVICES": "3"' "$AGENT/.claude/settings.local.json" && pass "GPU env in agent settings" || fail "GPU env in agent settings"
+grep -qF '"enabledPlugins"' "$AGENT/.claude/settings.local.json" && pass "the run worktree enables loopkit itself" || fail "the run worktree enables loopkit itself"
 [ ! -w "$RUN_DIR/run.json" ] && pass "run.json is read-only" || fail "run.json is read-only"
 [ -f "$RUN_DIR/ledger.jsonl" ] && pass "ledger lives in the run directory" || fail "ledger lives in the run directory"
 
@@ -361,6 +362,34 @@ lk "$AGENT" record --idea "comment" --proposed-by agent --learned "x"
 has "ITER 1/1" "iteration count restarts per batch"
 has "LOOPKIT-STOP | max_iters 1/1" "per-batch max_iters"
 
+printf '\n--- plateau and stopping early ---\n'
+
+lk "$AGENT" batch start --text "plateau batch" --conditions '{"max_iters": 10, "plateau": 2}'
+has "stop: max_iters=10; plateau=2" "plateau is registered"
+for n in 1 2; do
+  lk "$AGENT" checkout
+  echo "# plateau $n" >> "$AGENT/src/placer.py"
+  lk "$AGENT" evaluate
+  lk "$AGENT" record --idea "comment $n" --proposed-by agent --learned "hypothesis: none; result: inconclusive; evidence: -"
+done
+has "LOOPKIT-STOP | plateau: no KEPT in the last 2 iterations" "plateau stops the batch"
+
+lk "$AGENT" batch start --text "stop batch" --conditions '{"max_iters": 5}'
+lk "$AGENT" checkout
+set_params "$AGENT" 1.1 3
+lk "$AGENT" evaluate --max-wait 0.5
+has "PENDING" "a slow evaluation is pending"
+lk "$REPO" batch stop --reason "e2e says stop"
+has "LOOPKIT-STOP | stopped by user: e2e says stop" "the user stops the batch from their own repository"
+START=$(date +%s)
+lk "$AGENT" wait --max-wait 60
+has "LOOPKIT-STOP | stopped by user: e2e says stop" "the waiting run session sees the stop"
+[ $(( $(date +%s) - START )) -lt 20 ] && pass "the stop is noticed without waiting for the score" || fail "the stop is noticed without waiting for the score"
+lk "$AGENT" record --idea "x" --proposed-by agent --learned "x"
+has "LOOPKIT-STOP" "record after a stop records nothing"
+lk "$REPO" batch stop
+has "already stopped" "stopping twice is harmless"
+
 # ---------------------------------------------------------------------------
 printf '\n--- export, adopt, status ---\n'
 
@@ -406,7 +435,7 @@ printf '\n--- integrity ---\n'
 git -C "$REPO" config user.name "Changed Name"
 lk "$AGENT" batch start --text "fourth" --conditions '{"max_iters": 2}'
 has "WARNING: git config changed" "other config changes only warn"
-has "BATCH 4 | started" "the run continues after a warning"
+has "BATCH 6 | started" "the run continues after a warning"
 
 git -C "$REPO" config filter.evil.smudge "touch $TMP/pwned"
 lk "$AGENT" batch start --text "fourth" --conditions '{"max_iters": 2}'

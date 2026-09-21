@@ -1,7 +1,7 @@
 {
   "name": "loopkit",
   "description": "Evolve a repository's code with /goal or /loop: fixed-format iterations, single-agent or analysts-plus-decider workflows, a tolerance-based Pareto front, human candidates, and a live monitor.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "YanjenChen",
     "url": "https://github.com/YanjenChen"

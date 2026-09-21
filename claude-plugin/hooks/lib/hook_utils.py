@@ -537,13 +537,7 @@ def _run_from_marker(start):
 def _run_from_project_key(key):
     """Match ~/.claude/projects/<key>/ (the session's start directory, sanitized) to a run's agent worktree."""
     from loopkit import paths as lk_paths
-    # Hooks receive CLAUDE_PLUGIN_DATA; the CLI derives the same directory itself. Scan both,
-    # so a mismatch can never hide a run from the guards.
-    roots = []
-    for root in (lk_paths.data_root(), _derived_data_root()):
-        if root and root not in roots:
-            roots.append(root)
-    for data in roots:
+    for data in (lk_paths.data_root(),):
         try:
             repos = sorted_listdir(data)
         except OSError:
@@ -561,13 +555,6 @@ def _run_from_project_key(key):
                     if _PROJECT_KEY.sub('-', path) == key:
                         return run_paths
     return None
-
-
-def _derived_data_root():
-    from loopkit import paths as lk_paths
-    if os.environ.get('LOOPKIT_DATA_DIR'):
-        return None
-    return os.path.join(lk_paths.claude_config_dir(), 'plugins', 'data', lk_paths.plugin_data_id())
 
 
 def run_context(stdin):

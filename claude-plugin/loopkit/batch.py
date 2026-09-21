@@ -6,8 +6,12 @@ head of every iteration; the framework decides when the batch stops.
 
 Structured conditions:
   {"max_iters": 20,
+   "plateau": 5,
    "targets": [{"objective": "hpwl", "op": "<=", "value": 1.0e6}],
    "mode": "any"}
+
+plateau N stops the batch once its last N iterations produced no KEPT
+candidate: the /goal evaluator only reads the transcript and cannot tell.
 """
 
 import json
@@ -37,13 +41,16 @@ def parse_conditions(raw, config):
             raise LoopkitError('--conditions is not valid JSON: %s' % exc)
     if not isinstance(raw, dict):
         raise LoopkitError('--conditions must be a JSON object')
-    unknown = set(raw) - {'max_iters', 'targets', 'mode'}
+    unknown = set(raw) - {'max_iters', 'plateau', 'targets', 'mode'}
     if unknown:
         raise LoopkitError('--conditions has unknown keys: %s' % ', '.join(sorted(unknown)))
     warnings = []
     max_iters = raw.get('max_iters')
     if max_iters is not None and (not isinstance(max_iters, int) or isinstance(max_iters, bool) or max_iters < 1):
         raise LoopkitError('max_iters must be a positive integer')
+    plateau = raw.get('plateau')
+    if plateau is not None and (not isinstance(plateau, int) or isinstance(plateau, bool) or plateau < 1):
+        raise LoopkitError('plateau must be a positive integer')
     objectives = {o['name']: o for o in config['objectives']}
     targets = []
     for target in raw.get('targets') or []:
@@ -66,6 +73,8 @@ def parse_conditions(raw, config):
     if mode not in ('any', 'all'):
         raise LoopkitError('mode must be "any" or "all"')
     conditions = {'max_iters': max_iters, 'targets': targets, 'mode': mode}
+    if plateau is not None:
+        conditions['plateau'] = plateau
     return conditions, warnings
 
 
@@ -75,6 +84,8 @@ def describe(conditions):
     parts = []
     if conditions.get('max_iters'):
         parts.append('max_iters=%d' % conditions['max_iters'])
+    if conditions.get('plateau'):
+        parts.append('plateau=%d' % conditions['plateau'])
     targets = conditions.get('targets') or []
     if targets:
         text = ', '.join('%s%s%s' % (t['objective'], t['op'], fmt5(t['value'])) for t in targets)
@@ -100,11 +111,19 @@ def iterations(records, batch_no):
     return sum(1 for r in ledger_mod.candidates(records) if r.get('by') == 'agent' and r.get('batch') == batch_no)
 
 
-def check(conditions, iterations_done, evolution):
+def statuses(records, batch_no):
+    """Statuses of this batch's agent iterations, in order."""
+    return [r.get('status') for r in ledger_mod.candidates(records) if r.get('by') == 'agent' and r.get('batch') == batch_no]
+
+
+def check(conditions, iterations_done, evolution, batch_statuses=()):
     """Return the stop reason, or None to keep going."""
     max_iters = conditions.get('max_iters')
     if max_iters and iterations_done >= max_iters:
         return 'max_iters %d/%d' % (iterations_done, max_iters)
+    plateau = conditions.get('plateau')
+    if plateau and len(batch_statuses) >= plateau and 'KEPT' not in list(batch_statuses)[-plateau:]:
+        return 'plateau: no KEPT in the last %d iterations' % plateau
     targets = conditions.get('targets') or []
     if not targets:
         return None

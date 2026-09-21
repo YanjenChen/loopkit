@@ -120,8 +120,9 @@ Then push c000 to the monitor, which replaces its sample data:
   Code there in auto mode;
 - paste the `/goal` or `/loop` prompt and fill in the stop conditions;
 - from their own sessions: `/loopkit:request-eval <commit>` to have a commit evaluated,
-  `/loopkit:promote <hNNN>` to let it join the evolution, `/loopkit:status`, and
-  `/loopkit:adopt <id>` to get a candidate back as a branch.
+  `/loopkit:promote <hNNN>` to let it join the evolution, `/loopkit:status`,
+  `/loopkit:stop` to end the running batch early, and `/loopkit:adopt <id>` to get a
+  candidate back as a branch.
 
 To change objectives or the scoring later, run `/loopkit:init` again: that creates a new run,
 because scores from different scoring setups cannot be compared. Old runs keep their ledger

@@ -25,10 +25,18 @@ loopkit 是一個 Claude Code plugin，讓 `/goal` 或 `/loop` 在任何 repo �
 /plugin install loopkit@loopkit
 ```
 
-- **開發 loopkit 本身**：改為加入本機路徑（這個 repo 的根目錄）。plugin 會直接從原資料夾載入，改完 `claude-plugin/` 後執行 `/reload-plugins` 就會生效。
-- **更新**：push 之後執行 `/plugin update`。
+- **開發 loopkit 本身**：改為加入本機路徑（這個 repo 的根目錄）：`/plugin marketplace add /path/to/loopkit`。安裝時，Claude Code 會把 plugin 複製到 `~/.claude/plugins/cache/`，所以修改 `claude-plugin/` 之後要更新：
 
-> **注意**：run 的資料存在 plugin 的資料目錄（`~/.claude/plugins/data/loopkit-loopkit/`）。解除安裝 loopkit 會把所有 run 一起刪掉；用 CLI 解除安裝時加 `--keep-data` 才會保留。更新 plugin 不受影響。
+  ```
+  claude plugin marketplace update loopkit
+  claude plugin update loopkit@loopkit      # project scope 安裝的話，加 --scope project
+  ```
+
+  然後重開 session。
+- **從 GitHub 安裝的**：push 之後執行上面同樣的兩行指令。
+- **scope**：建議用 user scope。用 project scope 也可以，run 的 worktree 會自行啟用 loopkit。
+
+run 的資料放在 `~/loopkit-runs/<repo>/<run>/`（可以用環境變數 `LOOPKIT_DATA_DIR` 改到別的地方），不在 plugin 的資料目錄裡，所以更新、重裝或解除安裝 loopkit 都不會刪掉 run。要刪除 run，用 `loopkit run remove <name> --yes`。
 
 ## 一次 run 的流程
 
@@ -36,11 +44,13 @@ loopkit 是一個 Claude Code plugin，讓 `/goal` 或 `/loop` 在任何 repo �
 2. **啟動**：用 init 印出的指令，在新的 VS Code 視窗開啟 run 的 agent worktree，用 auto mode 啟動 Claude Code，貼上 init 印出的 prompt 之一：
 
    ```
-   /goal 重複執行 /loopkit:iter（停止條件：最多 20 輪或 hpwl 低於 1.0e6，由 loopkit 判斷），直到輸出出現 LOOPKIT-STOP。單一輪 REVERTED 或 FAILED 不代表目標不可能達成。
-   /loop /loopkit:iter（停止條件：最多 50 輪，由 loopkit 判斷；輸出出現 LOOPKIT-STOP 時停止 loop）
+   /goal 重複執行 /loopkit:iter（停止條件：最多 20 輪、連續 5 輪沒有進步，或 hpwl 低於 1.0e6，由 loopkit 判斷），直到輸出出現 LOOPKIT-STOP。單一輪 REVERTED 或 FAILED 不代表目標不可能達成。
+   /loop /loopkit:iter（停止條件：最多 50 輪或連續 8 輪沒有進步，由 loopkit 判斷；輸出出現 LOOPKIT-STOP 時停止 loop）
    ```
 
-   停止條件由 loopkit 判斷；達成時框架印出 `LOOPKIT-STOP`，`/goal` 和 `/loop` 都會停下來。之後想再跑一批，就用不同的 prompt 再下一次。
+   停止條件由 loopkit 判斷：輪數上限、plateau（連續 N 輪沒有 KEPT）、優化目標的門檻。達成時框架印出 `LOOPKIT-STOP`，`/goal` 和 `/loop` 都會停下來。之後想再跑一批，就用不同的 prompt 再下一次。
+
+   想提早停止時，在你自己的 session 執行 `/loopkit:stop`：run 會在幾秒內印出 `LOOPKIT-STOP` 並結束。也可以在 run 的視窗按 Esc 中斷目前這一輪，再輸入 `/goal clear`；agent 工作中直接輸入的 `/goal clear` 只會被當成一般訊息。
 3. **同時開發**：你繼續在自己的工作目錄開發。想讓某個 commit 被評估，在你自己的 session 執行 `/loopkit:request-eval <commit>`；它會在下一輪開頭被評分，成為 `hNNN`，預設只觀察。要讓它加入演化，執行 `/loopkit:promote <hNNN>`。
 4. **觀察**：從 monitor 看進度，或執行 `/loopkit:status`。
 5. **取回結果**：`/loopkit:adopt <id>` 在你的 repo 建立一個指向該候選的 branch，由你自行檢視和合併。
@@ -72,6 +82,7 @@ ITER 7/20 | c012<-c009 | hpwl 1.0231e6 (-0.80% better) | runtime 41.200s (+1.2% 
 | `/loopkit:promote <hNNN>` | 讓人工候選加入演化 |
 | `/loopkit:adopt <id>` | 在你的 repo 建立指向候選的 branch |
 | `/loopkit:status` | run 的狀態 |
+| `/loopkit:stop` | 提早結束目前的批次 |
 
 `/loopkit:iter` 只在 run session 裡由 `/goal` 或 `/loop` 執行。
 

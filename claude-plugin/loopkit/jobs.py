@@ -124,10 +124,17 @@ def start(job):
     return proc.pid
 
 
-def wait(jobs, max_wait):
-    """Wait until every job is done or max_wait seconds pass; returns True when all are done."""
+def wait(jobs, max_wait, abort=None):
+    """Wait until every job is done or max_wait seconds pass; returns True when all are done.
+
+    abort() is checked every couple of seconds; when it returns True the wait ends early.
+    """
     deadline = time.time() + max_wait
+    polls = 0
     while True:
+        polls += 1
+        if abort is not None and polls % 4 == 0 and abort():
+            return all(j.done() for j in jobs)
         pending = [j for j in jobs if not j.done()]
         if not pending:
             return True

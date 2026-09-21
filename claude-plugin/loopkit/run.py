@@ -160,6 +160,9 @@ def _build_run(repo, common, config, name, run_paths, c000, branch, gpu, knowled
         # Artifact is allowed so pushing to the monitor never waits on a prompt in an unattended run.
         'permissions': {'allow': ['Artifact'], 'deny': _deny_rules(repo, run_paths, common)},
         'env': dict({'PYTHONDONTWRITEBYTECODE': '1'}, **({'CUDA_VISIBLE_DEVICES': gpu} if gpu else {})),
+        # The agent worktree is a different project path: enable loopkit there whatever scope it was
+        # installed with (a project-scope install would not reach the run session otherwise).
+        'enabledPlugins': {paths_mod.plugin_id(): True},
     }
     write_json_atomic(os.path.join(run_paths.agent, paths_mod.SETTINGS_LOCAL), settings)
     write_json_atomic(os.path.join(run_paths.agent, paths_mod.MARKER),
@@ -341,9 +344,33 @@ class Run(object):
                 leftover.get('created'), '+'.join(leftover.get('parents', []))))
         self._check_stop(records, current)
 
+    def _stop_reason(self):
+        current = batch_mod.current(self.records())
+        return current['stopped'] if current else None
+
+    def batch_stop(self, reason=None):
+        """Stop the running batch now, on request of the user (or of the run session for them)."""
+        current = batch_mod.current(self.records())
+        if current is None:
+            raise LoopkitError('no batch has started in run %s' % self.name)
+        if current['stopped']:
+            say('BATCH %d | already stopped' % current['batch'])
+            stop_line(current['stopped'])
+            return
+        text = 'stopped by user' + (': ' + ' '.join(reason.split())[:200] if reason and reason.strip() else '')
+        self.ledger.event('batch_stop', batch=current['batch'], reason=text)
+        state = self.checkout_state(required=False)
+        if state and state.get('job'):
+            job = jobs.Job(self.paths, state['job'])
+            if not job.done():
+                job.kill()  # free the GPU; the unrecorded iteration is discarded
+        say('BATCH %d | stopped in run %s' % (current['batch'], self.name))
+        stop_line(text)
+
     def _check_stop(self, records, current):
         done = batch_mod.iterations(records, current['batch'])
-        reason = batch_mod.check(current['conditions'], done, self.evolution(records))
+        reason = batch_mod.check(current['conditions'], done, self.evolution(records),
+                                 batch_mod.statuses(records, current['batch']))
         if reason:
             self.ledger.event('batch_stop', batch=current['batch'], reason=reason)
             stop_line(reason)
@@ -392,7 +419,7 @@ class Run(object):
         state = self._state('queue-jobs.json') or {'jobs': []}
         entries = state['jobs']
         job_objs = [jobs.Job(self.paths, e['job']) for e in entries]
-        jobs.wait(job_objs, max_wait)
+        jobs.wait(job_objs, max_wait, abort=lambda: self._stop_reason() is not None)
         remaining = []
         for entry, job in zip(entries, job_objs):
             if job.done():
@@ -401,6 +428,11 @@ class Run(object):
                 remaining.append(entry)
         self._save_state('queue-jobs.json', {'jobs': remaining} if remaining else None)
         if remaining:
+            stopped = self._stop_reason()
+            if stopped:
+                # Human evaluations keep running and are recorded at the next queue step.
+                stop_line(stopped)
+                return False
             say('PENDING | %d human evaluation(s) still running | run: loopkit wait' % len(remaining))
         return not remaining
 
@@ -613,7 +645,14 @@ class Run(object):
         return 'CHANGED (%d): %s%s' % (len(changes), ', '.join(shown) or 'nothing (pure merge)', more)
 
     def _await_agent_job(self, job, max_wait):
-        if not jobs.wait([job], max_wait):
+        done = jobs.wait([job], max_wait, abort=lambda: self._stop_reason() is not None)
+        stopped = self._stop_reason()
+        if stopped:
+            if not job.done():
+                job.kill()
+            stop_line(stopped)
+            return False
+        if not done:
             say('PENDING | scoring is still running (job %s) | run: loopkit wait' % job.id)
             return False
         state = self.checkout_state()
@@ -651,8 +690,6 @@ class Run(object):
         if not state.get('job'):
             raise LoopkitError('nothing evaluated yet; run `loopkit evaluate` first')
         job = jobs.Job(self.paths, state['job'])
-        if not job.done():
-            raise LoopkitError('scoring is still running; run `loopkit wait` first')
         done = [r for r in ledger_mod.candidates(self.records()) if r.get('job') == job.id]
         if done:
             # The ledger line was written but the cleanup after it was interrupted.
@@ -660,6 +697,12 @@ class Run(object):
             self._save_state('checkout.json', None)
             say('NOTE: this iteration was already recorded as %s' % done[0]['id'])
             return
+        stopped = self._stop_reason()
+        if stopped:
+            stop_line(stopped)
+            return
+        if not job.done():
+            raise LoopkitError('scoring is still running; run `loopkit wait` first')
         idea = ' '.join((idea or '').split())
         learned = ' '.join((learned or '').split())
         if not idea:
@@ -771,9 +814,12 @@ class Run(object):
         say('NEXT')
         say('  1. Open the agent worktree in a new VS Code window:  code %s' % self.paths.agent)
         say('  2. Start Claude Code there in auto mode and paste one prompt (fill in the stop conditions):')
-        say('     /goal 重複執行 /loopkit:iter（停止條件：<例如：最多 20 輪或 %s %s <目標值>>，由 loopkit 判斷），'
-            '直到輸出出現 LOOPKIT-STOP。單一輪 REVERTED 或 FAILED 不代表目標不可能達成。' % (example['name'], below))
-        say('     /loop /loopkit:iter（停止條件：<例如：最多 50 輪>，由 loopkit 判斷；輸出出現 LOOPKIT-STOP 時停止 loop）')
+        say('     /goal 重複執行 /loopkit:iter（停止條件：<例如：最多 20 輪、連續 5 輪沒有進步，或 %s %s <目標值>>，'
+            '由 loopkit 判斷），直到輸出出現 LOOPKIT-STOP。單一輪 REVERTED 或 FAILED 不代表目標不可能達成。' % (example['name'], below))
+        say('     /loop /loopkit:iter（停止條件：<例如：最多 50 輪或連續 8 輪沒有進步>，由 loopkit 判斷；'
+            '輸出出現 LOOPKIT-STOP 時停止 loop）')
+        say('  3. To stop a batch early, run /loopkit:stop in your own session (or press Esc in the run window,'
+            ' then /goal clear).')
 
     def wait(self, max_wait):
         deadline = time.time() + max_wait

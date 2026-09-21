@@ -277,6 +277,22 @@ class BatchTest(unittest.TestCase):
         miss = {'targets': [{'objective': 'hpwl', 'op': '<=', 'value': 899.0}], 'mode': 'any'}
         self.assertIsNone(batch.check(miss, 0, evo))
 
+    def test_plateau(self):
+        cond, _ = batch.parse_conditions('{"max_iters": 20, "plateau": 3}', config())
+        self.assertEqual(cond['plateau'], 3)
+        self.assertEqual(batch.describe(cond), 'max_iters=20; plateau=3')
+        with self.assertRaises(Exception):
+            batch.parse_conditions('{"plateau": 0}', config())
+        evo = pareto.Evolution(config(), self._records())
+        self.assertIsNone(batch.check(cond, 4, evo, ['KEPT', 'REVERTED', 'REVERTED']))
+        self.assertIsNone(batch.check(cond, 4, evo, ['REVERTED', 'KEPT', 'FAILED', 'REVERTED']))
+        self.assertEqual(batch.check(cond, 4, evo, ['KEPT', 'REVERTED', 'FAILED', 'REVERTED']),
+                         'plateau: no KEPT in the last 3 iterations')
+        self.assertIsNone(batch.check(cond, 2, evo, ['REVERTED', 'REVERTED']))
+        records = self._records(cand(3, 'c001', 'KEPT', 1, 1, batch_no=1), cand(4, 'c002', 'FAILED', 0, 0, batch_no=2),
+                                cand(5, 'h001', 'OBSERVED', 1, 1, by='human', batch_no=None))
+        self.assertEqual(batch.statuses(records, 1), ['KEPT'])
+
     def test_iterations_count_agent_only(self):
         records = self._records(cand(3, 'c001', 'KEPT', 900.0, 10.0, batch_no=1), cand(4, 'h001', 'OBSERVED', 1, 1, by='human', batch_no=None),
                                 cand(5, 'c002', 'FAILED', 0, 0, batch_no=1), cand(6, 'c003', 'KEPT', 1, 1, batch_no=2))

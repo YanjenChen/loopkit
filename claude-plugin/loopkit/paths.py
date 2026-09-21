@@ -1,4 +1,4 @@
-"""Where loopkit keeps things: the data root, per-repo directories, and run directories."""
+"""Where loopkit keeps things: the data root (~/loopkit-runs), per-repo directories, and run directories."""
 
 import hashlib
 import os
@@ -29,30 +29,33 @@ def _installed_plugins():
         return {}
 
 
-def plugin_data_id():
-    """The directory name Claude Code uses for ${CLAUDE_PLUGIN_DATA}: <plugin>-<marketplace>."""
+def plugin_id():
+    """This plugin's id as Claude Code records it: loopkit@<marketplace>."""
     here = os.path.realpath(plugin_root())
     fallback = None
     for key, installs in _installed_plugins().items():
         name, _, marketplace = key.partition('@')
         if name != PLUGIN_NAME or not marketplace:
             continue
-        candidate = sanitize_name('%s-%s' % (name, marketplace))
         for install in installs if isinstance(installs, list) else []:
             path = install.get('installPath') if isinstance(install, dict) else None
             if path and os.path.realpath(path) == here:
-                return candidate
-        fallback = fallback or candidate
-    return fallback or sanitize_name('%s-%s' % (PLUGIN_NAME, PLUGIN_NAME))
+                return key
+        fallback = fallback or key
+    return fallback or '%s@%s' % (PLUGIN_NAME, PLUGIN_NAME)
+
+
+DEFAULT_DATA_DIR = '~/loopkit-runs'
 
 
 def data_root():
-    """${CLAUDE_PLUGIN_DATA}. Bash-tool commands don't receive it, so it is derived when absent."""
-    for var in ('LOOPKIT_DATA_DIR', 'CLAUDE_PLUGIN_DATA'):
-        value = os.environ.get(var)
-        if value:
-            return os.path.abspath(value)
-    return os.path.join(claude_config_dir(), 'plugins', 'data', plugin_data_id())
+    """Where runs live: ~/loopkit-runs, or LOOPKIT_DATA_DIR.
+
+    Outside the plugin's own data directory on purpose: easy to find, and
+    untouched when the plugin is updated, reinstalled or uninstalled.
+    """
+    value = os.environ.get('LOOPKIT_DATA_DIR')
+    return os.path.abspath(os.path.expanduser(value or DEFAULT_DATA_DIR))
 
 
 def repo_id(common_dir):
@@ -76,7 +79,7 @@ def lock_dir():
 
 
 class RunPaths(object):
-    """The layout of one run directory: ${CLAUDE_PLUGIN_DATA}/<repo>/<run>/."""
+    """The layout of one run directory: ~/loopkit-runs/<repo>/<run>/."""
 
     def __init__(self, run_dir):
         self.dir = os.path.abspath(run_dir)

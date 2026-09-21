@@ -18,6 +18,10 @@ Rules for the whole iteration:
   ends.
 - Edit files only inside this worktree and inside the scope that `loopkit checkout` prints.
 - A command that prints `LOOPKIT-STOP | <reason>` ends the iteration: go to **Stop**.
+- If the user sends a message during the run asking to stop (for example `/goal clear`,
+  "stop", "停"), run `loopkit batch stop --reason "<their words>"` at once and go to
+  **Stop**. A slash command typed while you are working reaches you as text, not as a
+  command, so this is how it takes effect.
 - A command that prints `PENDING` is still scoring: run `loopkit wait` (again, if it prints
   PENDING again) until it finishes.
 - `loopkit` is on the PATH while the plugin is enabled. If it is not, the `loopkit:loopkit`
@@ -34,10 +38,11 @@ Rules for the whole iteration:
    - `--text` is the /goal or /loop prompt that drives this session, verbatim and the same
      in every iteration.
    - `--conditions` is your reading of the stop conditions written in that prompt, as JSON:
-     `{"max_iters": 20, "targets": [{"objective": "hpwl", "op": "<=", "value": 1.0e6}], "mode": "any"}`.
-     Leave out what the prompt does not say. `mode` is `all` only when the prompt asks for
-     all targets together. Objective names and directions are on the OBJECTIVES line of
-     `loopkit summary`.
+     `{"max_iters": 20, "plateau": 5, "targets": [{"objective": "hpwl", "op": "<=", "value": 1.0e6}], "mode": "any"}`.
+     `max_iters` is a number of iterations; `plateau` is "stop after N iterations in a row
+     without improvement" (no KEPT); `targets` are objective thresholds. Leave out what the
+     prompt does not say. `mode` is `all` only when the prompt asks for all targets together.
+     Objective names and directions are on the OBJECTIVES line of `loopkit summary`.
    - It also runs the integrity checks. Compare the printed `stop:` line with the prompt.
 2. **Queue.** `loopkit queue` evaluates up to two of the user's commits and applies their
    promotions. HUMAN and PROMOTE lines report the results.
@@ -146,7 +151,8 @@ pushes the missing records again.
 
 ## Stop
 
-When any loopkit command prints `LOOPKIT-STOP | <reason>`:
+When any loopkit command prints `LOOPKIT-STOP | <reason>` (a stop condition was met, the user
+stopped the batch, or an integrity check failed):
 
 1. Push to the monitor, as above.
 2. Under `/goal`: end your reply with the `LOOPKIT-STOP | <reason>` line. That completes the

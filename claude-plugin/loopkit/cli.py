@@ -196,6 +196,9 @@ def build_parser():
     p.add_argument('--text', required=True, help='the /goal or /loop prompt, verbatim')
     p.add_argument('--conditions', required=True, help='structured stop conditions as JSON')
     p.set_defaults(func=lambda a: session_run(a).batch_start(a.text, a.conditions))
+    p = run_option(batch_sub.add_parser('stop', help='stop the running batch now (LOOPKIT-STOP)'))
+    p.add_argument('--reason', help='why, recorded in the ledger')
+    p.set_defaults(func=lambda a: user_run(a).batch_stop(a.reason))
 
     p = add('queue', lambda a: session_run(a).process_queue(_max_wait(a)), 'process human requests')
     max_wait(p)

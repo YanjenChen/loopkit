@@ -3,8 +3,8 @@
 ## 開發環境
 
 1. clone 這個 repo。
-2. 在 Claude Code 執行 `/plugins`，在 Marketplaces 分頁加入本機路徑（repo 根目錄），再安裝 `loopkit`。
-3. 修改 `claude-plugin/` 之後執行 `/reload-plugins`。plugin 直接從原資料夾載入，沒有建置或同步步驟。
+2. 在 Claude Code 執行 `/plugins`，在 Marketplaces 分頁加入本機路徑（repo 根目錄），再以 user scope 安裝 `loopkit`。
+3. 安裝時 plugin 會被複製到 `~/.claude/plugins/cache/`。修改 `claude-plugin/` 並 commit 之後，把 `plugin.json` 和 `marketplace.json` 的版本號加一，再執行 `claude plugin marketplace update loopkit` 和 `claude plugin update loopkit@loopkit`，然後重開 session。
 
 需要 git 2.31 以上和 Python 3.8 以上。框架和 hooks 都只用 Python 標準函式庫，請維持這一點，也請維持和 3.8 相容的語法。
 

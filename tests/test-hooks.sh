@@ -403,6 +403,7 @@ cmd_blocked "loopkit adopt c003" "loopkit adopt"
 cmd_blocked "loopkit run remove r001 --yes" "loopkit run remove"
 cmd_blocked "loopkit --run r001 promote h001" "loopkit --run NAME promote"
 cmd_allowed "loopkit summary" "loopkit summary"
+cmd_allowed "loopkit batch stop --reason 'user asked'" "loopkit batch stop on the user's request"
 cmd_allowed "loopkit record --idea 'x' --proposed-by agent --learned 'see $USER_REPO'" "loopkit record with a path in its text"
 
 # Unparseable commands and background runs.
@@ -438,6 +439,8 @@ run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst "loopkit --
 assert_exit 0 "dangerous-cmd-block: an analyst can run loopkit summary with --run and 2>&1"
 run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst-web "loopkit lineage c000")"
 assert_exit 0 "dangerous-cmd-block: an analyst can query loopkit"
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst "loopkit batch stop")"
+assert_exit 2 "dangerous-cmd-block: an analyst cannot stop the batch"
 run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:critic "loopkit export --ack 5")"
 assert_exit 2 "dangerous-cmd-block: the critic cannot ack monitor exports"
 run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst "python3 profile.py > out.txt")"

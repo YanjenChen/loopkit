@@ -27,7 +27,9 @@ The framework (`loopkit` CLI) does every git and ledger write; the agent only ed
   candidate is KEPT when it beats every front member in at least one objective by more than
   the tolerance; otherwise REVERTED. FAILED means it failed a constraint, the scope check, or
   the score script. Human candidates are OBSERVED until the user promotes them.
-- **batch**: one /goal or /loop execution, with its own stop conditions.
+- **batch**: one /goal or /loop execution, with its own stop conditions: a number of
+  iterations, a plateau (N iterations in a row without KEPT), objective targets, or the user
+  stopping it (`/loopkit:stop`).
 - **ledger**: the append-only, hash-chained record of the run; the only source of truth.
 
 ## The CLI
@@ -43,6 +45,7 @@ score (`run create`, `queue`, `evaluate`, `wait`) wait up to about 9 minutes and
 | `monitor html [--sample] --out F` | init | write the monitor page |
 | `run create [--gpu G] [--knowledge F] [--monitor-url U]` | init | create the run and score c000 |
 | `batch start --text T --conditions J` | run session | integrity check, register the batch, stop check |
+| `batch stop [--reason R]` | the user, or the run session on the user's request | stop the running batch now |
 | `queue` | run session | score queued human commits, apply promotions |
 | `summary [--full]` | run session, analysts | evolve state and pattern analysis |
 | `checkout [A [B]]` | run session | reset the agent worktree to parent A, optionally merge B |
@@ -60,12 +63,14 @@ in, or the repository's newest run.
 
 ## Where things are
 
-A run lives in `${CLAUDE_PLUGIN_DATA}/<repo>/<run>/`: `run.json` (frozen setup), `ledger.jsonl`,
+A run lives in `~/loopkit-runs/<repo>/<run>/` (or under `$LOOPKIT_DATA_DIR`): `run.json` (frozen setup), `ledger.jsonl`,
 `queue/`, `eval-assets/` (the score script and benchmark snapshot), `agent/` and `eval/`
 (worktrees), `build/` and `agent-build/`, `knowledge.md`, `artifacts/<id>/` (score logs and
 results) and `work/` (the iteration in progress). The repository's `.git` holds only the
-candidate commits and `refs/evolve/<run>/...`. Uninstalling the plugin deletes
-`${CLAUDE_PLUGIN_DATA}`, and every run with it.
+candidate commits and `refs/evolve/<run>/...`. Runs are outside the plugin's own data
+directory, so updating or uninstalling the plugin leaves them alone; `loopkit run remove`
+deletes one. The run worktree's `.claude/settings.local.json` enables the plugin there, so
+the run session loads loopkit whatever scope it was installed with.
 
 ## References
 
