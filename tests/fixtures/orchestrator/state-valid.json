@@ -1,1 +1,0 @@
-{"goal":"reduce bundle size","archetype":"optimize-metric","predicate":"npm test","units_remaining":[5,4,3],"cycle":3,"pipeline_log":[{"hop":"fix","outcome":"progressed"}]}

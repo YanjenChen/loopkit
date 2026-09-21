@@ -59,16 +59,6 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/iteration-context.py\"",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.py\"",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.py\"",
-            "timeout": 30
           }
         ]
       }

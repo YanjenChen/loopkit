@@ -58,7 +58,7 @@ def main():
         log('iteration-context', {'action': 'skip', 'iterationCount': iteration_count})
         sys.exit(0)
 
-    # Mark injection time so dev-rules-reminder can skip this turn
+    # Mark injection time
     fresh_state = load_session_state(stdin)
     fresh_state['lastContextInjection'] = int(now_ms())
     save_session_state(stdin, fresh_state)
