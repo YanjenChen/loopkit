@@ -4,11 +4,11 @@
 
 Autoresearch v2.2.2 is a modular, markdown-driven autonomous iteration framework. The core architectural shift from v2.0.x is the **thin SKILL.md + self-contained command files** pattern: the skill file is a routing table; all protocol is embedded in 13 self-contained command files. Only the invoked command file loads per invocation, reducing token cost by ~95%.
 
-As of v2.2.0, bare `/autoresearch` is overloaded: a `Metric:`/`Verify:` config runs the classic metric loop unchanged, while a free-form natural-language goal dispatches an **autonomous orchestrator** that classifies the goal, derives a success predicate, and loops the right subcommands until it holds. All routing decisions live in one deterministic seam, `scripts/orchestrate.sh` (mirroring the `scripts/score-regression.sh` pattern), bounded by plateau detection and a hard cycle ceiling.
+As of v2.2.0, bare `/autoresearch` is overloaded: a `Metric:`/`Verify:` config runs the classic metric loop unchanged, while a free-form natural-language goal dispatches an **autonomous orchestrator** that classifies the goal, derives a success predicate, and loops the right subcommands until it holds. All routing decisions live in one deterministic seam, `claude-plugin/skills/autoresearch/scripts/orchestrate.sh` (mirroring the `score-regression.sh` pattern next to it), bounded by plateau detection and a hard cycle ceiling.
 
 v2.2.1 hardens that seam with four orchestrator-safety additions: `screen-cmd` gains destructive-command coverage (netcat exfiltration, raw block-device writes across SD/eMMC·RAID·device-mapper families, `mkfs`, `find -delete`, `shred`, zero-`truncate`, recursive zero-mode `chmod`, curl/wget-into-interpreter via xargs) — including path-qualified invocations like `/sbin/mkfs.ext4`; the derived Success predicate is **pinned** verbatim into `orchestrator-state.json` and re-screened on resume via the new `screen-state-predicate` subcommand (extraction honors escaped quotes so a poisoned predicate cannot truncate the screen); a new `validate-state` subcommand gates the ledger (required fields + coarse types) before routing; and `next-hop` routes a high-impact accepted change through an independent **verify** hop (`pending_verify`) before declaring `DONE`. The seam now exposes eight subcommands: `classify`, `next-hop`, `units`, `plateau`, `screen-cmd`, `verdict`, `validate-state`, `screen-state-predicate`.
 
-Claude Code is the only supported platform. The canonical source is `.claude/`; `scripts/transform.sh` syncs it into the checked-in `claude-plugin/` package and copies the root runtime helpers (`scripts/orchestrate.sh`, `scripts/score-regression.sh`) into the skill-local `scripts/` folders of `.claude/skills/autoresearch/` and `claude-plugin/skills/autoresearch/`.
+Claude Code is the only supported platform, and the plugin manager is the only install path. `claude-plugin/` is the single source of truth: it holds the commands, the skill (routing table, references, and the runtime helpers `orchestrate.sh` and `score-regression.sh` under `skills/autoresearch/scripts/`), and the hooks, and it is edited directly with no sync or generation step. The root `.claude-plugin/marketplace.json` exposes it to the plugin manager (`"source": "./claude-plugin"`).
 
 ## Component Diagram
 
@@ -19,27 +19,24 @@ graph TB
         PS[Plugin System]
     end
 
-    subgraph "Transform Layer"
-        TX[scripts/transform.sh]
+    subgraph "Marketplace"
+        MKT[.claude-plugin/marketplace.json\nsource: ./claude-plugin]
     end
 
-    subgraph "Canonical Source"
-        SKILL[.claude/skills/autoresearch/SKILL.md\nthin routing table]
-        CMD[.claude/commands/autoresearch.md]
-        CMDS[.claude/commands/autoresearch/*.md\n12 self-contained subcommand files]
-        REF[.claude/skills/autoresearch/references/\nshared routing and review references]
+    subgraph "Plugin — claude-plugin/, single source of truth"
+        SKILL[skills/autoresearch/SKILL.md\nthin routing table]
+        CMD[commands/autoresearch.md]
+        CMDS[commands/autoresearch/*.md\n12 self-contained subcommand files]
+        REF[skills/autoresearch/references/\nshared routing and review references]
+        RT[skills/autoresearch/scripts/\norchestrate.sh + score-regression.sh]
+        HK[hooks/\nhooks.json + 9 hook .cjs files]
     end
 
-    subgraph "Plugin Distribution"
-        PLG[claude-plugin/\ncommands + skills + hooks]
-    end
-
-    CC --> PS --> PLG
-    CC --> SKILL
-    CC --> CMD & CMDS
+    CC --> PS --> MKT
+    MKT --> SKILL & CMD & CMDS & HK
     SKILL -.routing only.-> CMDS
     CMDS --> REF
-    TX --> PLG
+    SKILL & CMDS --> RT
 ```
 
 ## Data Flow — Core Autoresearch Loop
@@ -80,7 +77,8 @@ flowchart TD
 ## Directory Structure
 
 ```
-.claude/
+claude-plugin/                             # Single source of truth — edited directly
+├── .claude-plugin/plugin.json             # Claude Code metadata — v2.2.2
 ├── commands/
 │   ├── autoresearch.md                    # Core loop command — self-contained, 110 lines
 │   └── autoresearch/
@@ -96,36 +94,29 @@ flowchart TD
 │       ├── regression.md                  # Baseline/candidate stability gate
 │       ├── scenario.md                    # 12-dimension edge case loop
 │       └── security.md                    # STRIDE + OWASP loop
-└── skills/autoresearch/
-    ├── SKILL.md                           # Routing table only — 41 lines
-    ├── references/
-    │   ├── predict-personas.md            # 5 default expert personas
-    │   ├── reason-judge-protocol.md       # Blind judge scoring protocol
-    │   ├── security-checklist.md          # STRIDE + OWASP checklist
-    │   └── orchestrator-routing.md        # Goal archetypes and routing contract
-    └── scripts/                           # Copies of orchestrate.sh + score-regression.sh (synced by transform.sh)
-├── hooks/autoresearch/                    # Hook system
-│   ├── hooks.json                         # Auto-registration
-│   ├── node-hook-runner.sh                # Shell wrapper
-│   ├── .ckignore                          # Baseline blocked patterns
-│   ├── lib/                               # Shared modules
-│   └── [9 hook .cjs files]
+├── skills/autoresearch/
+│   ├── SKILL.md                           # Routing table only — 41 lines
+│   ├── references/
+│   │   ├── predict-personas.md            # 5 default expert personas
+│   │   ├── reason-judge-protocol.md       # Blind judge scoring protocol
+│   │   ├── security-checklist.md          # STRIDE + OWASP checklist
+│   │   └── orchestrator-routing.md        # Goal archetypes and routing contract
+│   └── scripts/
+│       ├── orchestrate.sh                 # Orchestrator routing seam
+│       └── score-regression.sh            # Regression scoring backend
+└── hooks/                                 # Hook system
+    ├── hooks.json                         # Auto-registration
+    ├── node-hook-runner.sh                # Shell wrapper
+    ├── .ckignore                          # Baseline blocked patterns
+    ├── lib/                               # Shared modules
+    └── [9 hook .cjs files]
 
-scripts/
-├── transform.sh                          # Syncs .claude/ into claude-plugin/ + skill-local helpers
-├── orchestrate.sh                        # Orchestrator routing seam
-├── score-regression.sh                   # Regression scoring backend
-└── install.sh                            # Guided installer
-
-claude-plugin/
-├── .claude-plugin/plugin.json            # Claude Code metadata — v2.2.2
-└── hooks/                                # Hook system (plugin install)
-.claude-plugin/marketplace.json           # Plugin marketplace entry
+.claude-plugin/marketplace.json            # Plugin marketplace entry — source: ./claude-plugin
 ```
 
 ## Hook System Architecture
 
-Autoresearch includes defense-in-depth hook guardrails. Plugin installs register them via `hooks/hooks.json`; `scripts/install.sh` merges the same registrations into the target `settings.json`.
+Autoresearch includes defense-in-depth hook guardrails. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled; there is no other registration path. Each entry runs a `.cjs` hook through `node-hook-runner.sh`, so the hooks need Node.js 18 or newer on the PATH of the shell Claude Code uses. Nothing checks this at install time.
 
 ### Hook Lifecycle
 
@@ -162,6 +153,8 @@ Hooks share `ar-session-{hash}.json` through Node's operating-system temporary d
 
 ### Plugin Distribution
 
+Hooks ship inside the plugin. `hooks.json` addresses every hook through `${CLAUDE_PLUGIN_ROOT}`, so the registrations work wherever the plugin manager places the plugin:
+
 ```
 claude-plugin/
 ├── .claude-plugin/plugin.json    # v2.2.2
@@ -172,8 +165,8 @@ claude-plugin/
 │   │   ├── ar-hook-utils.cjs
 │   │   └── ignore.cjs
 │   └── [9 hook files]
-├── commands/                     # unchanged
-├── skills/                       # unchanged
+├── commands/
+└── skills/
 ```
 
 ## Key Architectural Decisions
@@ -184,7 +177,7 @@ claude-plugin/
 | Self-contained command files | Each file embeds full protocol — no reference file loading unless needed |
 | Focused shared references | Only routing, personas, judge protocol, and security material shared across command boundaries warrants a reference |
 | No autoresearch-command-spec.json | JSON spec removed; command contracts live in individual command files |
-| `.claude/` as the single canonical source | `scripts/transform.sh` regenerates `claude-plugin/` and the skill-local runtime helpers from it; generated copies are never edited by hand |
+| `claude-plugin/` as the single source of truth | Commands, skill, runtime helpers, and hooks are edited in place with no sync or generation step, so there are no copies to drift; the marketplace entry points straight at it |
 | TSV with `# metric_direction` comment | Enables evals command to auto-detect direction without user prompt |
 | 8 TSV status values | baseline, keep, discard, crash, no-op, hook-blocked, metric-error, keep (reworked) |
 | handoff.json for chain integration | Structured handoff between subcommands; evals reads `*-results.tsv` directly |
@@ -194,8 +187,8 @@ claude-plugin/
 
 ## Integration Points
 
-- **Claude Code Plugin System** — commands in `.claude/commands/`, skill in `.claude/skills/`
-- **Claude Code Hook System** — 9 hooks auto-registered via `hooks/hooks.json` in plugin
+- **Claude Code Plugin System** — installed from `.claude-plugin/marketplace.json`; commands in `claude-plugin/commands/`, skill in `claude-plugin/skills/`
+- **Claude Code Hook System** — 9 hooks auto-registered via `claude-plugin/hooks/hooks.json` when the plugin is enabled
 - **Git** — memory, rollback, staleness detection, changelog generation
 - **Shell** — verify and guard commands are user-defined shell expressions
 - **MCP servers** — any MCP server configured in the host environment is available during loops

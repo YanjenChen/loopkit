@@ -6,7 +6,7 @@ This project is entirely **markdown-based** with shell script helpers. There is 
 
 ## File Naming
 
-- **kebab-case** for all file names: `security-checklist.md`, `transform.sh`
+- **kebab-case** for all file names: `security-checklist.md`, `score-regression.sh`
 - Names should be descriptive enough that an LLM understands purpose without reading content
 - Command files match their command name: `debug.md` for `/autoresearch:debug`
 
@@ -23,7 +23,7 @@ Target: ~41 lines. All protocol lives in the command files.
 
 ## Command File Pattern (v2.2.2)
 
-Each command file (`.claude/commands/autoresearch/*.md`) is **self-contained**:
+Each command file (`claude-plugin/commands/autoresearch/*.md`) is **self-contained**:
 - YAML frontmatter: `name`, `description`, `argument-hint`
 - `EXECUTE IMMEDIATELY` header — no deliberation before reading
 - Parse Arguments section — extract all flags inline
@@ -37,7 +37,7 @@ Target: 94–120 lines per command file. Never split protocol across files unles
 
 ## Reference Files Pattern (v2.2.2)
 
-Reference files (`.claude/skills/autoresearch/references/`) are for **shared content only**:
+Reference files (`claude-plugin/skills/autoresearch/references/`) are for **shared content only**:
 - Loaded explicitly by the command file that needs them
 - Must be referenced by 3+ commands to justify existence as a reference
 - Current 4 references: `orchestrator-routing.md`, `predict-personas.md`, `reason-judge-protocol.md`, `security-checklist.md`
@@ -61,9 +61,9 @@ The `# metric_direction` comment on line 1 enables the evals command to auto-det
 ## Version Management
 
 - Version tracked in the plugin manifests:
-  - `claude-plugin/.claude-plugin/plugin.json` — Claude Code canonical manifest (e.g. `2.2.2`)
+  - `claude-plugin/.claude-plugin/plugin.json` — Claude Code plugin manifest (e.g. `2.2.2`)
   - `.claude-plugin/marketplace.json` — marketplace entry (top-level and plugin `version`)
-- Version also appears in SKILL.md frontmatter and README badges
+- Version also appears in `claude-plugin/skills/autoresearch/SKILL.md` frontmatter (`version:`) and the README and guide version badges
 - There is no release script; bump every touchpoint together by hand
 
 ## Shell Script Standards
@@ -71,17 +71,17 @@ The `# metric_direction` comment on line 1 enables the evals command to auto-det
 - Shebang: `#!/usr/bin/env bash`
 - Quote all variables: `"$VAR"` not `$VAR`
 - `set -euo pipefail` for strict error handling
-- Scripts live in `scripts/`; the skill-local `scripts/` copies of `orchestrate.sh` and `score-regression.sh` are generated, never edited by hand
-- `scripts/transform.sh` is the single sync step for `claude-plugin/` and the skill-local runtime helpers; do not maintain separate sync scripts
+- Runtime helpers (`orchestrate.sh`, `score-regression.sh`) live only in `claude-plugin/skills/autoresearch/scripts/` and are edited there directly; there are no other copies
+- Skill and command text resolves `scripts/...` relative to the installed skill directory, never the caller's working directory
 
 ## Plugin Distribution
 
-Source of truth is `.claude/`. To update the checked-in Claude Code plugin (`claude-plugin/`):
-1. Edit canonical files in `.claude/commands/`, `.claude/skills/`, or `.claude/hooks/autoresearch/`
-2. Run `scripts/transform.sh` to regenerate `claude-plugin/` and the skill-local runtime helpers
-3. Commit all generated files together
+Source of truth is `claude-plugin/`; the root `.claude-plugin/marketplace.json` points at it (`"source": "./claude-plugin"`). To change the plugin:
+1. Edit files in `claude-plugin/commands/`, `claude-plugin/skills/autoresearch/`, or `claude-plugin/hooks/` directly — there is no sync or transform step
+2. Test locally: add the repo root (the folder containing `.claude-plugin/marketplace.json`) as a local-directory marketplace in `/plugins` (Marketplaces tab) and install the plugin. It loads in place from that folder, so run `/reload-plugins` after each edit
+3. Run `bash tests/test-hooks.sh`, `bash tests/test-orchestrator.sh`, and `bash tests/test-regression.sh`
 
-Do not hand-edit `claude-plugin/` files directly.
+Hooks are registered only through `claude-plugin/hooks/hooks.json`, which Claude Code loads when the plugin is enabled.
 
 ## Documentation Standards
 

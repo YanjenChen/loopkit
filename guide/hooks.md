@@ -4,7 +4,9 @@ Autoresearch v2.2.2 includes hook guardrails that fire automatically on every Cl
 
 ## How Hooks Work
 
-Hooks are Node.js scripts that intercept Claude Code events. They read JSON from stdin, make a decision, and write JSON to stdout with an exit code:
+Hooks are Node.js scripts that intercept Claude Code events. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled. They need Node.js 18 or newer, with `node` on the PATH of the shell Claude Code uses; nothing checks this at install time.
+
+Each hook reads JSON from stdin, makes a decision, and writes JSON to stdout with an exit code:
 - **Exit 0** — allow, ask through the native host boundary, or inject context
 - **Exit 2** — block (with error message)
 
@@ -191,8 +193,8 @@ Records contain bounded metadata only: timestamp, hook name, action, safe catego
 ## File Structure
 
 ```
-.claude/hooks/autoresearch/
-├── hooks.json              # Hook registration (auto-loaded by Claude Code)
+claude-plugin/hooks/
+├── hooks.json              # Hook registration (auto-loaded when the plugin is enabled)
 ├── node-hook-runner.sh     # Shell wrapper for clean Node.js execution
 ├── .ckignore               # Baseline blocked patterns
 ├── lib/

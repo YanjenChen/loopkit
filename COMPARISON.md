@@ -253,32 +253,37 @@ autoresearch/
 - `train.py` — model architecture, optimizer, training loop (AGENT MODIFIES THIS)
 - `program.md` — high-level strategy (HUMAN WRITES THIS)
 
-### Claude Autoresearch: Modular Skill System (v2.1.0)
+### Claude Autoresearch: Modular Skill System
 
 ```
 autoresearch/
-├── .claude/
+├── claude-plugin/                          ← Claude Code plugin (single source of truth)
+│   ├── .claude-plugin/plugin.json          ← Plugin manifest
 │   ├── skills/autoresearch/
 │   │   ├── SKILL.md                        ← Thin routing table (41 lines)
-│   │   └── references/
-│   │       ├── security-checklist.md       ← STRIDE + OWASP checklist
-│   │       ├── predict-personas.md         ← 5 expert personas
-│   │       └── reason-judge-protocol.md    ← Adversarial refinement protocol
-│   └── commands/
-│       ├── autoresearch.md                 ← Core loop (self-contained, 110 lines)
-│       └── autoresearch/
-│           ├── plan.md                     ← /autoresearch:plan
-│           ├── debug.md                    ← /autoresearch:debug
-│           ├── fix.md                      ← /autoresearch:fix
-│           ├── security.md                 ← /autoresearch:security
-│           ├── scenario.md                 ← /autoresearch:scenario
-│           ├── predict.md                  ← /autoresearch:predict
-│           ├── learn.md                    ← /autoresearch:learn
-│           ├── reason.md                   ← /autoresearch:reason
-│           ├── probe.md                    ← /autoresearch:probe
-│           └── evals.md                    ← /autoresearch:evals (NEW)
-├── claude-plugin/                          ← Claude Code plugin package (via transform.sh)
-├── scripts/transform.sh                    ← .claude/ → claude-plugin/ sync
+│   │   ├── references/
+│   │   │   ├── security-checklist.md       ← STRIDE + OWASP checklist
+│   │   │   ├── predict-personas.md         ← 5 expert personas
+│   │   │   ├── reason-judge-protocol.md    ← Adversarial refinement protocol
+│   │   │   └── orchestrator-routing.md     ← Goal archetypes + routing contract
+│   │   └── scripts/                        ← orchestrate.sh + score-regression.sh
+│   ├── commands/
+│   │   ├── autoresearch.md                 ← Core loop (self-contained, 110 lines)
+│   │   └── autoresearch/
+│   │       ├── plan.md                     ← /autoresearch:plan
+│   │       ├── debug.md                    ← /autoresearch:debug
+│   │       ├── fix.md                      ← /autoresearch:fix
+│   │       ├── security.md                 ← /autoresearch:security
+│   │       ├── scenario.md                 ← /autoresearch:scenario
+│   │       ├── predict.md                  ← /autoresearch:predict
+│   │       ├── learn.md                    ← /autoresearch:learn
+│   │       ├── reason.md                   ← /autoresearch:reason
+│   │       ├── probe.md                    ← /autoresearch:probe
+│   │       ├── improve.md                  ← /autoresearch:improve
+│   │       ├── evals.md                    ← /autoresearch:evals
+│   │       └── regression.md               ← /autoresearch:regression
+│   └── hooks/                              ← Hook guardrails (auto-registered via hooks.json)
+├── .claude-plugin/marketplace.json         ← Plugin marketplace entry
 ├── guide/                                  ← Comprehensive guides (one per command)
 └── README.md
 ```

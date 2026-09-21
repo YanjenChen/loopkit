@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-HOOKS_DIR="$REPO_ROOT/.claude/hooks/autoresearch"
+HOOKS_DIR="$REPO_ROOT/claude-plugin/hooks"
 
 PASS=0
 FAIL=0
@@ -831,102 +831,6 @@ STDOUT=$(node -r "$REPO_ROOT/tests/fixtures/hooks/https-webhook-stub.cjs" \
   "$HOOKS_DIR/stop-notify.cjs" "$HTTPS_MARKER" timeout \
   <<<'{"session_id":"https-webhook-timeout"}')
 assert_contains "terminalSequence" "stop-notify: webhook timeout is bounded"
-
-CLAUDE_INSTALL="$TEMP_DIR/claude-install"
-mkdir -p "$CLAUDE_INSTALL"
-cat > "$CLAUDE_INSTALL/settings.json" <<'JSON'
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          { "type": "command", "command": "existing-user-hook" },
-          { "type": "command", "command": "bash /old/hooks/autoresearch/session-init.cjs" },
-          { "type": "command", "command": "bash C:\\Users\\test\\hooks\\autoresearch\\session-init.cjs" }
-        ]
-      }
-    ]
-  }
-}
-JSON
-bash "$REPO_ROOT/scripts/install.sh" --claude --global --config-dir "$CLAUDE_INSTALL" --force >/dev/null
-if [[ -x "$CLAUDE_INSTALL/hooks/autoresearch/node-hook-runner.sh" ]]; then
-  printf '  PASS: %s\n' "Claude guided install: hook runner is installed"
-  PASS=$((PASS + 1)); TOTAL=$((TOTAL + 1))
-else
-  printf '  FAIL: %s\n' "Claude guided install: hook runner is installed"
-  FAIL=$((FAIL + 1)); TOTAL=$((TOTAL + 1))
-fi
-STDOUT=$(cat "$CLAUDE_INSTALL/settings.json")
-assert_contains "session-init.cjs" "Claude guided install: hooks are registered"
-assert_contains "existing-user-hook" "Claude guided install: existing hooks are preserved"
-TOTAL=$((TOTAL + 1))
-if [[ $(grep -o 'existing-user-hook' "$CLAUDE_INSTALL/settings.json" | wc -l | tr -d ' ') == "1" ]]; then
-  printf '  PASS: %s\n' "Claude guided install: mixed user hook survives stale hook replacement"
-  PASS=$((PASS + 1))
-else
-  printf '  FAIL: %s\n' "Claude guided install: mixed user hook survives stale hook replacement"
-  FAIL=$((FAIL + 1))
-fi
-
-ALL_REGISTERED=1
-for hook in scout-block privacy-block dangerous-cmd-block iteration-context dev-rules-reminder simplify-gate subagent-context session-init stop-notify; do
-  grep -q "$hook.cjs" "$CLAUDE_INSTALL/settings.json" || ALL_REGISTERED=0
-done
-TOTAL=$((TOTAL + 1))
-if [[ "$ALL_REGISTERED" -eq 1 ]]; then
-  printf '  PASS: %s\n' "Claude guided install: every advertised hook is registered"
-  PASS=$((PASS + 1))
-else
-  printf '  FAIL: %s\n' "Claude guided install: every advertised hook is registered"
-  FAIL=$((FAIL + 1))
-fi
-
-bash "$REPO_ROOT/scripts/install.sh" --claude --global --config-dir "$CLAUDE_INSTALL" --force >/dev/null
-AUTORESEARCH_REGISTRATIONS=$(grep -o 'session-init.cjs' "$CLAUDE_INSTALL/settings.json" | wc -l | tr -d ' ')
-if [[ "$AUTORESEARCH_REGISTRATIONS" == "1" ]]; then
-  printf '  PASS: %s\n' "Claude guided install: registration is idempotent"
-  PASS=$((PASS + 1)); TOTAL=$((TOTAL + 1))
-else
-  printf '  FAIL: %s\n' "Claude guided install: registration is idempotent"
-  FAIL=$((FAIL + 1)); TOTAL=$((TOTAL + 1))
-fi
-
-MALFORMED_INSTALL="$TEMP_DIR/claude-malformed"
-mkdir -p "$MALFORMED_INSTALL"
-printf '{invalid settings' > "$MALFORMED_INSTALL/settings.json"
-set +e
-bash "$REPO_ROOT/scripts/install.sh" --claude --global --config-dir "$MALFORMED_INSTALL" --force >/dev/null 2>&1
-MALFORMED_EXIT=$?
-set -e
-if [[ "$MALFORMED_EXIT" -ne 0 ]] && grep -q '^{invalid settings$' "$MALFORMED_INSTALL/settings.json" &&
-   [[ ! -e "$MALFORMED_INSTALL/hooks" && ! -e "$MALFORMED_INSTALL/skills" && ! -e "$MALFORMED_INSTALL/commands" ]]; then
-  printf '  PASS: %s\n' "Claude guided install: malformed settings refuse without data loss"
-  PASS=$((PASS + 1)); TOTAL=$((TOTAL + 1))
-else
-  printf '  FAIL: %s\n' "Claude guided install: malformed settings refuse without data loss"
-  FAIL=$((FAIL + 1)); TOTAL=$((TOTAL + 1))
-fi
-
-SYMLINK_INSTALL="$TEMP_DIR/claude-symlink"
-mkdir -p "$SYMLINK_INSTALL/managed"
-printf '{"theme":"dark"}\n' > "$SYMLINK_INSTALL/managed/settings.json"
-node - "$SYMLINK_INSTALL/settings.json" <<'NODE'
-const fs = require('fs');
-const path = require('path');
-fs.symlinkSync(path.join('managed', 'settings.json'), process.argv[2], 'file');
-if (!fs.lstatSync(process.argv[2]).isSymbolicLink()) process.exit(1);
-NODE
-bash "$REPO_ROOT/scripts/install.sh" --claude --global --config-dir "$SYMLINK_INSTALL" --force >/dev/null
-TOTAL=$((TOTAL + 1))
-if node -e 'process.exit(require("fs").lstatSync(process.argv[1]).isSymbolicLink() ? 0 : 1)' "$SYMLINK_INSTALL/settings.json" &&
-   grep -q 'session-init.cjs' "$SYMLINK_INSTALL/managed/settings.json"; then
-  printf '  PASS: %s\n' "Claude guided install: symlinked settings target is preserved and updated"
-  PASS=$((PASS + 1))
-else
-  printf '  FAIL: %s\n' "Claude guided install: symlinked settings target is preserved and updated"
-  FAIL=$((FAIL + 1))
-fi
 
 # Test: Disabled via env var
 AR_DISABLE_STOP_NOTIFY=1 run_hook "stop-notify.cjs" '{"session_id":"disabled-notify"}'

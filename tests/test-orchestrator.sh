@@ -7,7 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RUBRIC_TARGET="${REG_RUBRIC_TARGET:-32}"
 
-ORCH="$REPO_ROOT/scripts/orchestrate.sh"
+SKILL_DIR="$REPO_ROOT/claude-plugin/skills/autoresearch"
+ORCH="$SKILL_DIR/scripts/orchestrate.sh"
 FIX="$REPO_ROOT/tests/fixtures/orchestrator"
 
 PASS=0; FAIL=0; TOTAL=0
@@ -504,99 +505,55 @@ bash "$ORCH" unknown-cmd 2>/dev/null; UNK_CODE=$?
 assert_eq 64 "$UNK_CODE" "unknown subcommand → exit 64"
 
 # ============================================================================
-printf '\n--- distribution parity: orchestrator artifacts across mirrors ---\n'
+printf '\n--- plugin layout: skill bundle and version surfaces ---\n'
 # ============================================================================
 
-# The orchestrator-routing.md reference must exist in every skill mirror.
-for mirror in .claude claude-plugin; do
-  ref="$REPO_ROOT/$mirror/skills/autoresearch/references/orchestrator-routing.md"
-  if [[ -f "$ref" ]]; then
-    pass "parity: orchestrator-routing.md present in $mirror"
-  else
-    fail "parity: orchestrator-routing.md MISSING in $mirror"
-  fi
-done
+if [[ -f "$SKILL_DIR/references/orchestrator-routing.md" ]]; then
+  pass "layout: orchestrator-routing.md ships with the skill"
+else
+  fail "layout: orchestrator-routing.md MISSING from the skill"
+fi
 
-# Every skill distribution carries the canonical 2.2.2 version stamp.
-for skill in \
-  .claude/skills/autoresearch/SKILL.md \
-  claude-plugin/skills/autoresearch/SKILL.md; do
-  assert_eq "version: 2.2.2" "$(grep -m1 '^version:' "$REPO_ROOT/$skill")" \
-    "parity: $skill version is 2.2.2"
-done
+assert_eq "version: 2.2.2" "$(grep -m1 '^version:' "$SKILL_DIR/SKILL.md")" \
+  "version: SKILL.md is 2.2.2"
 
-VERSION_SURFACES=$(node - "$REPO_ROOT" <<'NODE'
-const root = process.argv[2];
-const read = (file) => require(`${root}/${file}`);
-console.log([
-  read('.claude-plugin/marketplace.json').version,
-  read('.claude-plugin/marketplace.json').plugins[0].version,
-  read('claude-plugin/.claude-plugin/plugin.json').version,
-].join('\n'));
-NODE
+VERSION_SURFACES=$(python3 - "$REPO_ROOT" <<'PY'
+import json, sys
+root = sys.argv[1]
+read = lambda f: json.load(open(f"{root}/{f}"))
+market = read('.claude-plugin/marketplace.json')
+print(market['version'], market['plugins'][0]['version'],
+      read('claude-plugin/.claude-plugin/plugin.json')['version'], sep='\n')
+PY
 )
 assert_eq $'2.2.2\n2.2.2\n2.2.2' "$VERSION_SURFACES" \
-  "parity: release manifests use the canonical version"
+  "version: plugin manifests use the canonical version"
 for badge in README.md guide/README.md; do
   assert_contains "version-2.2.2-blue" "$(grep -m1 'img.shields.io/badge/version-' "$REPO_ROOT/$badge")" \
-    "parity: $badge badge is 2.2.2"
+    "version: $badge badge is 2.2.2"
 done
 
-# Root scripts are the maintained source for every self-contained skill bundle.
-RUNTIME_MIRRORS=(
-  .claude/skills/autoresearch
-  claude-plugin/skills/autoresearch
-)
-for mirror in "${RUNTIME_MIRRORS[@]}"; do
-  for helper in orchestrate.sh score-regression.sh; do
-    generated="$REPO_ROOT/$mirror/scripts/$helper"
-    if [[ -x "$generated" ]] && cmp -s "$REPO_ROOT/scripts/$helper" "$generated"; then
-      pass "runtime parity: $mirror/scripts/$helper"
-    else
-      fail "runtime parity: $mirror/scripts/$helper missing, non-executable, or stale"
-    fi
-  done
+# The plugin loads in place, so the bundled helpers must run from any working directory.
+for helper in orchestrate.sh score-regression.sh; do
+  [[ -x "$SKILL_DIR/scripts/$helper" ]] \
+    && pass "bundle: scripts/$helper is executable" \
+    || fail "bundle: scripts/$helper is missing or not executable"
 done
 
-# The real installers must execute the helpers from disposable configuration roots.
-INSTALL_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/autoresearch-install-XXXXXX")
-BROKEN_NODE_BIN="$INSTALL_ROOT/broken-node-bin"
-mkdir -p "$BROKEN_NODE_BIN"
-printf '#!/bin/sh\nexit 127\n' > "$BROKEN_NODE_BIN/node"
-chmod +x "$BROKEN_NODE_BIN/node"
-NODELESS_OUT=""; NODELESS_CODE=0
-NODELESS_OUT=$(PATH="$BROKEN_NODE_BIN:$PATH" bash "$REPO_ROOT/scripts/install.sh" --global \
-  --config-dir "$INSTALL_ROOT/no-node" --force 2>&1) || NODELESS_CODE=$?
-assert_eq 1 "$NODELESS_CODE" "install: unavailable Node.js is refused"
-assert_contains "Node.js 18 or newer is required" "$NODELESS_OUT" "install: Node.js prerequisite is explicit"
-[[ ! -e "$INSTALL_ROOT/no-node/skills/autoresearch" ]] \
-  && pass "install: Node.js refusal occurs before files are copied" \
-  || fail "install: Node.js refusal occurs before files are copied"
+UNRELATED_CWD=$(mktemp -d "${TMPDIR:-/tmp}/autoresearch-cwd-XXXXXX")
+cp "$REPO_ROOT/tests/fixtures/regression/red-to-red.tsv" "$UNRELATED_CWD/smoke.tsv"
 
-UNRELATED_CWD="$INSTALL_ROOT/unrelated-project"
-mkdir -p "$UNRELATED_CWD"
-target="$INSTALL_ROOT/claude"
-bash "$REPO_ROOT/scripts/install.sh" --global \
-  --config-dir "$target" --force >/dev/null
-installed_skill="$target/skills/autoresearch"
-cp "$REPO_ROOT/tests/fixtures/regression/red-to-red.tsv" "$target/smoke.tsv"
+BUNDLED_ORCH_OUT=$(cd "$UNRELATED_CWD" && bash "$SKILL_DIR/scripts/orchestrate.sh" classify "fix the login bug" 2>/dev/null)
+assert_eq "fix-broken" "$BUNDLED_ORCH_OUT" "bundle: orchestrator executes outside the checkout"
 
-INSTALLED_ORCH_OUT=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/orchestrate.sh" classify "fix the login bug" 2>/dev/null)
-assert_eq "fix-broken" "$INSTALLED_ORCH_OUT" "install: bundled orchestrator executes"
+BUNDLED_REG_OUT=$(cd "$UNRELATED_CWD" && bash "$SKILL_DIR/scripts/score-regression.sh" verdict smoke.tsv 2>/dev/null)
+assert_contains "VERDICT: STABLE" "$BUNDLED_REG_OUT" \
+  "bundle: regression scorer executes outside the checkout"
 
-INSTALLED_REG_OUT=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/score-regression.sh" verdict \
-  "$target/smoke.tsv" 2>/dev/null)
-assert_contains "VERDICT: STABLE" "$INSTALLED_REG_OUT" \
-  "install: bundled regression scorer executes"
-
-INSTALLED_RUBRIC=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/score-regression.sh" rubric 2>/dev/null | sed -n 's/^SCORE: //p')
-assert_ge "${INSTALLED_RUBRIC:-0}" "$RUBRIC_TARGET" \
-  "install: default bundled rubric resolves outside checkout"
-
-printf '  EVIDENCE: host=%s os=%s revision=%s installed_root=%s command=%s result=PASS\n' \
-  claude "$(uname -s)" "$(git -C "$REPO_ROOT" rev-parse HEAD)" "$target" \
-  'orchestrate classify; score-regression verdict; score-regression rubric'
-rm -rf "$INSTALL_ROOT"
+BUNDLED_RUBRIC=$(cd "$UNRELATED_CWD" && bash "$SKILL_DIR/scripts/score-regression.sh" rubric 2>/dev/null | sed -n 's/^SCORE: //p')
+assert_ge "${BUNDLED_RUBRIC:-0}" "$RUBRIC_TARGET" \
+  "bundle: default rubric spec resolves outside the checkout"
+rm -rf "$UNRELATED_CWD"
 
 # ============================================================================
 printf '\n=== Results: %d/%d passed ===' "$PASS" "$TOTAL"

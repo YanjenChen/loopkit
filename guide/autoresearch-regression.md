@@ -99,7 +99,7 @@ STABLE  iff  stability_score ≥ 95          (threshold + weights overridable)
 No dimension ran ......................... BASELINE_UNAVAILABLE (fail-safe, never a false green)
 ```
 
-The report prints the **per-dimension contribution table** so the math is auditable, and the displayed score is floored — it can never read ≥ threshold while the verdict is UNSTABLE. Backed by `scripts/score-regression.sh verdict <results.tsv>` (exit `0` STABLE / `1` UNSTABLE).
+The report prints the **per-dimension contribution table** so the math is auditable, and the displayed score is floored — it can never read ≥ threshold while the verdict is UNSTABLE. Backed by `scripts/score-regression.sh verdict <results.tsv>`, resolved relative to the installed Autoresearch skill directory (exit `0` STABLE / `1` UNSTABLE).
 
 ---
 

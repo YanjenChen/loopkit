@@ -1,6 +1,6 @@
 # Advanced Patterns
 
-Bounded defaults, CI/CD integration, evals checkpoints, MCP, guards, and plugin sync.
+Bounded defaults, CI/CD integration, evals checkpoints, MCP, and guards.
 
 ---
 
@@ -128,27 +128,6 @@ jobs:
     Topic: Check if any new constraints emerged from recent changes"
   # outputs autoresearch-config.yml for next day's optimization loop
 ```
-
----
-
-## Plugin Sync via transform.sh
-
-`scripts/transform.sh` syncs the canonical `.claude/` source into the checked-in Claude Code plugin (`claude-plugin/`) and copies the root runtime helpers into the skill-local `scripts/` folders. Run it after adding or editing commands, references, hooks, or the root helpers. It takes no flags.
-
-```bash
-./scripts/transform.sh
-```
-
-What it produces:
-
-| Source | Output |
-|--------|--------|
-| `.claude/commands/autoresearch.md` + `.claude/commands/autoresearch/*.md` | `claude-plugin/commands/` |
-| `.claude/skills/autoresearch/` | `claude-plugin/skills/autoresearch/` |
-| `.claude/hooks/autoresearch/` | `claude-plugin/hooks/` |
-| `scripts/orchestrate.sh` + `scripts/score-regression.sh` | `.claude/skills/autoresearch/scripts/` and `claude-plugin/skills/autoresearch/scripts/` |
-
-Run `bash tests/test-maintenance.sh` locally to confirm the transform is deterministic (no generated drift).
 
 ---
 

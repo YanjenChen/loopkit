@@ -4,49 +4,37 @@ Whether you're fixing a typo, adding examples, creating a new sub-command, or im
 
 ## Quick Start
 
-Autoresearch is Markdown files that Claude Code discovers from `skills/` and `commands/` directories. No build step, no compilation — edit a `.md` file, invoke the skill, see your changes.
+Autoresearch is a Claude Code plugin: Markdown files that Claude Code discovers from the plugin's `skills/` and `commands/` directories, plus shell runtime helpers and Node.js hooks. Everything lives in `claude-plugin/`, the single source of truth. No build step, no compilation, no sync step — edit a file in `claude-plugin/`, reload the plugin, see your changes.
 
 ```bash
-# 1. Clone the repo
+# Clone the repo
 git clone https://github.com/uditgoenka/autoresearch.git
 cd autoresearch
-
-# 2. Install via guided installer
-./scripts/install.sh --global   # all projects (~/.claude by default)
-./scripts/install.sh --local    # current project only (./.claude)
-
-# 3. Or symlink for live editing (recommended for development)
-ln -s $(pwd)/.claude/skills/autoresearch ~/.claude/skills/autoresearch
-ln -s $(pwd)/.claude/commands/autoresearch ~/.claude/commands/autoresearch
-ln -s $(pwd)/.claude/commands/autoresearch.md ~/.claude/commands/autoresearch.md
 ```
 
-### Plugin Sync
+Then, in Claude Code:
 
-The canonical source is `.claude/`. After making changes, run the transform to sync the checked-in Claude Code plugin (`claude-plugin/`) and the skill-local runtime helpers:
+1. **Add your clone as a local marketplace.** In `/plugins` (Marketplaces tab), add the repo root — the folder containing `.claude-plugin/marketplace.json` — as a local-directory marketplace.
+2. **Install the plugin** from that marketplace.
+3. **Edit and reload.** Plugins from a local-directory marketplace load in place from that folder, so edit files in `claude-plugin/` directly and run `/reload-plugins` to pick up each change.
 
-```bash
-./scripts/transform.sh
-```
+The hook guardrails need Node.js 18 or newer, with `node` on the PATH of the shell Claude Code uses.
 
 ## Repository Structure (v2.2.2)
 
 ```
 autoresearch/
-├── .claude/                                       ← CANONICAL SOURCE — edit here first
+├── claude-plugin/                                 ← THE PLUGIN — single source of truth, edit here
+│   ├── .claude-plugin/plugin.json                 ← Plugin manifest
 │   ├── skills/autoresearch/
 │   │   ├── SKILL.md                               ← Thin routing table
-│   │   └── references/                            ← Shared routing and review references
-│   └── commands/
-│       ├── autoresearch.md                        ← Core loop (self-contained, ~110 lines)
-│       └── autoresearch/                          ← 12 subcommand files (self-contained)
-├── claude-plugin/                                 ← Distribution package (Claude Code plugin install)
-├── .claude-plugin/marketplace.json                ← Plugin marketplace entry
-├── scripts/
-│   ├── install.sh                                 ← Guided installer (Claude Code)
-│   ├── transform.sh                               ← .claude/ → claude-plugin/ sync + skill-local helpers
-│   ├── orchestrate.sh                             ← Orchestrator routing seam (canonical copy)
-│   └── score-regression.sh                        ← Regression scoring backend (canonical copy)
+│   │   ├── references/                            ← Shared routing and review references
+│   │   └── scripts/                               ← Runtime helpers: orchestrate.sh, score-regression.sh
+│   ├── commands/
+│   │   ├── autoresearch.md                        ← Core loop (self-contained, ~110 lines)
+│   │   └── autoresearch/                          ← 12 subcommand files (self-contained)
+│   └── hooks/                                     ← Hook guardrails (hooks.json, .cjs hooks, lib/)
+├── .claude-plugin/marketplace.json                ← Plugin marketplace entry (source: ./claude-plugin)
 ├── tests/                                         ← Shell test suites + fixtures
 ├── guide/                                         ← Guides — one per command + advanced patterns
 ├── docs/                                          ← Project docs (architecture, changelog, standards)
@@ -58,14 +46,15 @@ autoresearch/
 
 | File | Purpose | Edit when... |
 |------|---------|-------------|
-| `.claude/skills/autoresearch/SKILL.md` | Thin routing table — subcommand list, defaults, universal flags | Adding subcommands, changing defaults |
-| `.claude/commands/autoresearch.md` | Core loop — self-contained instructions (~110 lines) | Changing loop behavior |
-| `.claude/commands/autoresearch/*.md` | Subcommand files — each self-contained with full instructions | Modifying any subcommand |
+| `claude-plugin/skills/autoresearch/SKILL.md` | Thin routing table — subcommand list, defaults, universal flags | Adding subcommands, changing defaults |
+| `claude-plugin/commands/autoresearch.md` | Core loop — self-contained instructions (~110 lines) | Changing loop behavior |
+| `claude-plugin/commands/autoresearch/*.md` | Subcommand files — each self-contained with full instructions | Modifying any subcommand |
 | `references/security-checklist.md` | STRIDE + OWASP checklist (loaded by security command) | Adding security checks |
 | `references/predict-personas.md` | 5 expert personas (loaded by predict command) | Adding/modifying personas |
 | `references/reason-judge-protocol.md` | Adversarial refinement protocol (loaded by reason command) | Changing judge/critic behavior |
-| `scripts/transform.sh` | Canonical transform (.claude/ → claude-plugin/, plus skill-local copies of the runtime helpers) | Adding new commands, reference files, or generated helper updates |
-| `claude-plugin/` | Distribution package — synced from .claude/ by `scripts/transform.sh` | Don't edit directly — edit .claude/ |
+| `claude-plugin/skills/autoresearch/scripts/orchestrate.sh` | Orchestrator routing seam | Changing orchestrator routing, screening, or plateau logic |
+| `claude-plugin/skills/autoresearch/scripts/score-regression.sh` | Regression scoring backend | Changing regression scoring or verdicts |
+| `claude-plugin/hooks/` | Hook guardrails and their `hooks.json` registration | Adding or changing hooks (see Hook Development) |
 
 ## What to Contribute
 
@@ -92,7 +81,7 @@ autoresearch/
 ### 1. Create the command file
 
 ```
-.claude/commands/autoresearch/yourcommand.md
+claude-plugin/commands/autoresearch/yourcommand.md
 ```
 
 Self-contained file with: YAML frontmatter (`name`, `description`, `argument-hint`), argument parsing, setup gate, loop/phases, output, chain handoff. Target: 80-120 lines.
@@ -108,11 +97,9 @@ Add one row to the subcommands table:
 
 Only create a reference in `references/` if shared by multiple commands. Single-command logic stays in the command file.
 
-### 4. Run transform + update docs
+### 4. Reload + update docs
 
-```bash
-./scripts/transform.sh   # sync claude-plugin/ + skill-local runtime helpers
-```
+Run `/reload-plugins` in a session with your clone installed as a local-directory marketplace (see Quick Start), then invoke the new command.
 
 Update: README.md (commands table), guide/ (new guide file), COMPARISON.md (subcommand count).
 
@@ -132,7 +119,7 @@ Update: README.md (commands table), guide/ (new guide file), COMPARISON.md (subc
 
 1. **One PR = one feature.** Don't bundle unrelated changes.
 2. **Branch from `master`.** Target `master` as base.
-3. **Run `scripts/transform.sh`** after any changes to `.claude/`.
+3. **Edit `claude-plugin/` directly.** There is no sync step and no generated copy.
 4. **Run the test suites locally** — there is no CI (see Testing).
 5. **Update docs** — README, guide, COMPARISON as needed.
 6. **Don't bump the version.** Maintainers handle versioning.
@@ -141,19 +128,17 @@ Update: README.md (commands table), guide/ (new guide file), COMPARISON.md (subc
 
 Test changes by hand in a real Claude Code session:
 
-1. Symlink your working tree (see Quick Start)
+1. Install your clone as a local-directory marketplace plugin (see Quick Start) and run `/reload-plugins` after each edit
 2. Open Claude Code in a real project
 3. Invoke the command (`/autoresearch`, `/autoresearch:plan`, etc.)
 4. Verify behavior matches your changes
 5. Try edge cases — wrong metric? 0 files in scope? Guard always fails?
 
-The repo also includes shell-based test suites for the generated plugin and the hook/runtime contracts. There is no CI, so run them locally:
+The repo also includes three shell-based test suites for the plugin's hook and runtime contracts. There is no CI, so run them locally:
 
-- `bash scripts/transform.sh` — regenerate `claude-plugin/` and the skill-local runtime helpers
 - `bash tests/test-hooks.sh` — hook contracts and fail-open behavior
-- `bash tests/test-orchestrator.sh` — orchestrator routing seam (`scripts/orchestrate.sh`)
-- `bash tests/test-regression.sh` — regression scoring (`scripts/score-regression.sh`) and spec contract
-- `bash tests/test-maintenance.sh` — transform determinism (no generated drift)
+- `bash tests/test-orchestrator.sh` — orchestrator routing seam (`claude-plugin/skills/autoresearch/scripts/orchestrate.sh`)
+- `bash tests/test-regression.sh` — regression scoring (`claude-plugin/skills/autoresearch/scripts/score-regression.sh`) and spec contract
 
 ## Getting Help
 
@@ -167,7 +152,7 @@ Thanks for contributing!
 
 ### Adding a New Hook
 
-1. Create `.claude/hooks/autoresearch/{name}.cjs`
+1. Create `claude-plugin/hooks/{name}.cjs`
 2. Use the shared library: `require('./lib/ar-hook-utils.cjs')`
 3. Follow the pattern:
    ```js
@@ -183,8 +168,8 @@ Thanks for contributing!
      process.exit(0); // fail-open
    }
    ```
-4. Register in `hooks.json` under the correct event
-5. Run `bash scripts/transform.sh` to update the plugin distribution and bundled runtime helpers
+4. Register in `claude-plugin/hooks/hooks.json` under the correct event, invoking it through `node-hook-runner.sh` like the existing entries
+5. Run `/reload-plugins` to load the new registration
 6. Run `bash tests/test-hooks.sh` to verify
 
 ### Hook Rules
@@ -199,10 +184,10 @@ Thanks for contributing!
 
 ```bash
 # Syntax check
-node --check .claude/hooks/autoresearch/my-hook.cjs
+node --check claude-plugin/hooks/my-hook.cjs
 
 # Manual test
-echo '{"tool_name":"Read","tool_input":{"file_path":"test.txt"}}' | node .claude/hooks/autoresearch/my-hook.cjs
+echo '{"tool_name":"Read","tool_input":{"file_path":"test.txt"}}' | node claude-plugin/hooks/my-hook.cjs
 echo "Exit code: $?"
 
 # Full test suite

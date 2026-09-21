@@ -15,22 +15,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-resolve_default_spec() {
-  local candidate
-  for candidate in \
-    "$SCRIPT_DIR/../regression.md" \
-    "$SCRIPT_DIR/../../../commands/autoresearch/regression.md" \
-    "$SCRIPT_DIR/../../../commands/autoresearch_regression.md" \
-    "$REPO_ROOT/.claude/commands/autoresearch/regression.md" \
-    "$REPO_ROOT/claude-plugin/commands/autoresearch/regression.md"; do
-    [[ -f "$candidate" ]] && { printf '%s\n' "$candidate"; return; }
-  done
-  printf '%s\n' "$SCRIPT_DIR/../regression.md"
-}
-
-SPEC_DEFAULT="$(resolve_default_spec)"
+# The regression spec ships in the plugin's commands/ directory, two levels above skills/<skill>/.
+SPEC_DEFAULT="$SCRIPT_DIR/../../../commands/autoresearch/regression.md"
 
 REG_THRESHOLD="${REG_THRESHOLD:-95}"
 REG_W_FLAKINESS="${REG_W_FLAKINESS:-0.30}"

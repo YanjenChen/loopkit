@@ -46,7 +46,7 @@ Everything you need to master autonomous iteration — from first run to advance
 | [/autoresearch:regression](autoresearch-regression.md) | Stability gate — baseline diff, STABLE/UNSTABLE verdict before you push |
 | [Chains & Combinations](chains-and-combinations.md) | Multi-command pipelines with all 13 commands |
 | [Examples by Domain](examples-by-domain.md) | Real-world examples: software, sales, marketing, DevOps, ML, HR |
-| [Advanced Patterns](advanced-patterns.md) | Guards, MCP, CI/CD, evals checkpoints, transform.sh |
+| [Advanced Patterns](advanced-patterns.md) | Guards, MCP, CI/CD, evals checkpoints |
 | [Hooks Reference](hooks.md) | 9 auto-firing hooks: safety gates, context injection, notifications |
 | **[Scenario Guides](scenario/)** | **Real-world scenario walkthroughs** |
 

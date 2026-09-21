@@ -374,8 +374,8 @@ verdict() {
 # ---------------------------------------------------------------------------
 # validate-state: schema gate for orchestrator-state.json. The ledger is the
 # loop's evidence trail; a malformed one must not be trusted to route from.
-# Prints "valid" exit 0 | "invalid" exit 2. Node is a checked installation
-# prerequisite, so use its JSON parser rather than approximating JSON with grep.
+# Prints "valid" exit 0 | "invalid" exit 2. Uses Node's JSON parser (the hooks
+# already require Node) rather than approximating JSON with grep.
 # ---------------------------------------------------------------------------
 validate-state() {
   local state_file="${1:?usage: validate-state <state.json>}"

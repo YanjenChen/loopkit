@@ -20,7 +20,7 @@ Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) —
 
 *You don't need AGI. You need a goal, a metric, and a loop that never quits.*
 
-**Built for Claude Code. The plugin install and `scripts/install.sh` both include the core skill, bundled runtime, and hook guardrails.**
+**Built for Claude Code. The plugin install includes the core skill, bundled runtime, and hook guardrails.**
 
 > **v2.2.0 — Autonomous Orchestrator:** Type a plain-language goal to `/autoresearch` and it classifies your goal, derives a Success predicate, confirms it once, then loops across subcommands until done. No manual chaining required. `Metric:`/`Verify:` invocations run the classic loop unchanged. See [guide/autoresearch-orchestrator.md](guide/autoresearch-orchestrator.md).
 
@@ -114,7 +114,7 @@ Before looping, Claude performs a one-time setup:
 
 ## Hooks & Safety
 
-Hooks are defense-in-depth guardrails, not a security sandbox. The plugin install and `scripts/install.sh` both register them; a manual copy of the skill and commands does not.
+Hooks are defense-in-depth guardrails, not a security sandbox. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled. They run on Node.js, so they need `node` 18 or newer on the PATH of the shell Claude Code uses.
 
 ### What's Protected
 
@@ -214,7 +214,7 @@ Contributor verification (local test suites) lives in [CONTRIBUTING.md](CONTRIBU
 
 ### Install
 
-**Option A — Plugin install (recommended):**
+Install through Claude Code's plugin manager: the `/plugins` dialog in the VS Code extension, or `/plugin` in the CLI. Add the marketplace, then install the plugin:
 
 ```
 /plugin marketplace add uditgoenka/autoresearch
@@ -223,36 +223,14 @@ Contributor verification (local test suites) lives in [CONTRIBUTING.md](CONTRIBU
 
 > **Note:** Start a new Claude Code session after installing. Reference files aren't resolvable in the same session where installation happened — this is a Claude Code platform limitation.
 
+**Prerequisite for the hook guardrails:** Node.js 18 or newer, with `node` on the PATH of the shell Claude Code uses. Nothing checks this at install time. See [Hooks & Safety](#hooks--safety).
+
 **Updating (no reinstall needed):**
 ```
 /plugin update autoresearch
 ```
 
 Run `/reload-plugins` to activate. No need to uninstall or re-clone.
-
-**Option B — Manual copy:**
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-
-# Copy skill + subcommands to your project
-cp -r autoresearch/.claude/skills/autoresearch .claude/skills/autoresearch
-cp -r autoresearch/.claude/commands/autoresearch .claude/commands/autoresearch
-cp autoresearch/.claude/commands/autoresearch.md .claude/commands/autoresearch.md
-```
-
-Or install globally:
-```bash
-cp -r autoresearch/.claude/skills/autoresearch ~/.claude/skills/autoresearch
-cp -r autoresearch/.claude/commands/autoresearch ~/.claude/commands/autoresearch
-cp autoresearch/.claude/commands/autoresearch.md ~/.claude/commands/autoresearch.md
-```
-
-**Option C — Guided installer:**
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-cd autoresearch
-./scripts/install.sh --global   # or --local for the current project only
-```
 
 ### Run It
 
@@ -582,13 +560,10 @@ autoresearch/
 ├── README.md
 ├── COMPARISON.md                                  ← Karpathy's vs Claude Autoresearch
 ├── guide/                                         ← Guides — one per command + advanced patterns
-├── scripts/
-│   ├── install.sh                                 ← Guided installer (Claude Code)
-│   ├── transform.sh                               ← Sync: .claude/ → claude-plugin/ + skill-local helpers
-│   ├── orchestrate.sh                             ← Orchestrator routing seam
-│   └── score-regression.sh                        ← Regression scoring backend
 ├── tests/                                         ← Shell test suites (run locally)
-├── .claude/
+├── .claude-plugin/marketplace.json                ← Plugin marketplace entry (source: ./claude-plugin)
+├── claude-plugin/                                 ← Claude Code plugin — the single source of truth
+│   ├── .claude-plugin/plugin.json                 ← Plugin manifest
 │   ├── skills/autoresearch/
 │   │   ├── SKILL.md                               ← Thin routing table (41 lines)
 │   │   ├── references/                            ← 4 focused reference files
@@ -596,8 +571,10 @@ autoresearch/
 │   │   │   ├── predict-personas.md                ← 5 personas + adversarial set
 │   │   │   ├── reason-judge-protocol.md           ← Adversarial refinement loop
 │   │   │   └── orchestrator-routing.md            ← Goal archetypes + routing contract
-│   │   └── scripts/                               ← Bundled runtime helpers (synced by transform.sh)
-│   ├── hooks/autoresearch/                        ← Hook guardrails
+│   │   └── scripts/                               ← Bundled runtime helpers
+│   │       ├── orchestrate.sh                     ← Orchestrator routing seam
+│   │       └── score-regression.sh                ← Regression scoring backend
+│   ├── hooks/                                     ← Hook guardrails (hooks.json + Node.js hooks)
 │   └── commands/
 │       ├── autoresearch.md                        ← Core loop (self-contained, ~100 lines)
 │       └── autoresearch/                          ← 12 subcommand files (self-contained)
@@ -613,8 +590,6 @@ autoresearch/
 │           ├── probe.md
 │           ├── evals.md
 │           └── regression.md
-├── claude-plugin/                                 ← Claude Code plugin package (via transform.sh)
-├── .claude-plugin/marketplace.json                ← Plugin marketplace entry
 └── LICENSE
 ```
 
@@ -638,7 +613,7 @@ A: Every looping command ships with a sensible default (e.g., `/autoresearch` de
 A: Point it at any `*-results.tsv` file from a previous run. It reports trends, plateau detection, and a recommendation. Use `--evals-interval N` during a live run to get checkpoint reports without interrupting the loop.
 
 **Q: Does this work with any project?**
-A: Yes. Any language, framework, or domain. Install via plugin (Claude Code), installer script, or manual copy.
+A: Yes. Any language, framework, or domain. Install through the Claude Code plugin manager (`/plugins` in the VS Code extension, `/plugin` in the CLI).
 
 **Q: How do I stop the loop?**
 A: `Ctrl+C` or add `Iterations: N` to your inline config. Claude commits before verifying, so your last successful state is always in git.

@@ -6,7 +6,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-SCORE_SH="$REPO_ROOT/scripts/score-regression.sh"
+SCORE_SH="$REPO_ROOT/claude-plugin/skills/autoresearch/scripts/score-regression.sh"
 FIX="$REPO_ROOT/tests/fixtures/regression"
 SPEC="$REPO_ROOT/claude-plugin/commands/autoresearch/regression.md"
 RUBRIC_TARGET="${REG_RUBRIC_TARGET:-32}"
@@ -147,17 +147,6 @@ spec_has "--max-runs"                                             "spec: --max-r
 spec_has "fix-cycles|3 cycles"                                    "spec: fix-cycle bound"
 spec_has "verdict.*STABLE|STABLE.*UNSTABLE"                       "spec: verdict field"
 spec_has "COMPLETE.*CONVERGED.*SATURATED|family enum"             "spec: handoff family status enum"
-
-# ============================================================================
-printf '\n--- distribution: mirror parity ---\n'
-# ============================================================================
-
-CLAUDE_MIRROR="$REPO_ROOT/.claude/commands/autoresearch/regression.md"
-if diff -q "$SPEC" "$CLAUDE_MIRROR" >/dev/null 2>&1; then
-  pass "mirror parity: .claude command matches Claude plugin"
-else
-  fail "mirror parity: .claude command diverged from Claude plugin"
-fi
 
 # ============================================================================
 printf '\n--- distribution: manifest command count = 13 + regression listed ---\n'

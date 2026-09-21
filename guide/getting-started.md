@@ -14,44 +14,20 @@ Works on anything with a measurable outcome — code coverage, bundle size, API 
 
 ## Installation
 
-### Manual — Project-Level
-
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-cp -r autoresearch/.claude/skills/autoresearch .claude/skills/autoresearch
-cp -r autoresearch/.claude/commands/autoresearch .claude/commands/autoresearch
-```
-
-### Manual — Global
-
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-cp -r autoresearch/.claude/skills/autoresearch ~/.claude/skills/autoresearch
-cp -r autoresearch/.claude/commands/autoresearch ~/.claude/commands/autoresearch
-```
-
-### Plugin
+Autoresearch installs through Claude Code's plugin manager: the `/plugins` dialog in the VS Code extension, or `/plugin` in the CLI. Add the marketplace, then install the plugin:
 
 ```
 /plugin marketplace add uditgoenka/autoresearch
 /plugin install autoresearch@autoresearch
 ```
 
-### Guided Installer
-
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-cd autoresearch
-./scripts/install.sh --global   # or --local for the current project only
-```
-
-The plugin and the guided installer also register the hook guardrails; the manual copies above do not.
+Enabling the plugin also registers the hook guardrails from its `hooks/hooks.json`. The hooks run on Node.js: they need `node` 18 or newer on the PATH of the shell Claude Code uses. Nothing checks this at install time.
 
 ### Verify Installation
 
-Start a new Claude Code session, invoke `/autoresearch`, and confirm the plugin or guided install registered the hooks.
+Start a new Claude Code session, invoke `/autoresearch`, and confirm the plugin registered the hooks.
 
-Each installed skill contains `scripts/orchestrate.sh` and
+The installed skill contains `scripts/orchestrate.sh` and
 `scripts/score-regression.sh`, so both helpers run without a source checkout.
 Supported capabilities run on macOS, Linux, and native Windows with Git Bash.
 
