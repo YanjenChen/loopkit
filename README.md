@@ -6,7 +6,7 @@ It is built for long, unattended runs, such as optimizing a GPU placer (C++/CUDA
 
 - **Fixed-format iterations**: `/loopkit:iter` runs each iteration. The framework fixes its head and tail; the workflow in the middle is a single agent, or several analysts plus a decider.
 - **Multiple objectives**: objectives are compared within a tolerance, and a Pareto front is maintained.
-- **Keep developing alongside**: a run works in its own worktrees and data directory and never touches your working tree. Your own commits can be sent in for evaluation, and you decide whether they join the evolution.
+- **Keep developing alongside**: a run works in its own worktrees and data directory and never touches your working tree (setup only commits `.loopkit/` once). Your own commits can be sent in for evaluation, and you decide whether they join the evolution.
 - **Scoring integrity**: the score script and benchmarks are frozen into a snapshot when the run is created. A scope check, permission rules, hooks and tamper detection keep the agent away from what it must not change.
 - **Ledger and monitor**: every result goes into an append-only, hash-chained ledger. The monitor is a Claude artifact that shows the front, the evolve tree and the details of every candidate.
 
@@ -50,7 +50,7 @@ Runs live in `~/loopkit-runs/<repo>/<run>/` (set `LOOPKIT_DATA_DIR` to put them 
 
    loopkit decides the stop conditions: a number of iterations, a plateau (N iterations in a row without KEPT), and objective thresholds. When one is met, the framework prints `LOOPKIT-STOP`, and both `/goal` and `/loop` stop. To run another batch later, start again with a different prompt.
 
-   To stop early, run `/loopkit:stop` in your own session: the run prints `LOOPKIT-STOP` within seconds and ends. You can also press Esc in the run's window to interrupt the current iteration and then enter `/goal clear`; a `/goal clear` typed while the agent is working only reaches it as an ordinary message.
+   To stop early, run `/loopkit:stop` in your own session: the run prints `LOOPKIT-STOP` at its next `loopkit` command (within seconds if it is waiting for a score) and ends. You can also press Esc in the run's window to interrupt the current iteration and then enter `/goal clear`; a `/goal clear` typed while the agent is working only reaches it as an ordinary message.
 3. **Keep developing**: carry on in your own working tree. To have a commit evaluated, run `/loopkit:request-eval <commit>` in your own session; it is scored at the head of the next iteration as `hNNN` and is only observed by default. To let it join the evolution, run `/loopkit:promote <hNNN>`.
 4. **Watch**: follow progress on the monitor, or run `/loopkit:status`.
 5. **Take results back**: `/loopkit:adopt <id>` creates a branch in your repository at that candidate, for you to review and merge.

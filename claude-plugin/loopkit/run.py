@@ -894,14 +894,13 @@ class Run(object):
             'updated': records[-1]['ts'] if records else None,
         }
 
-    def export(self, since=None, pending=False, ack=None):
-        if ack is not None:
-            self._save_state('monitor.json', {'pushed_seq': ack, 'at': now_iso()})
-            say('ACK %d' % ack)
-            return
+    def monitor_ack(self, seq):
+        """Record that the monitor has every record up to seq."""
+        self._save_state('monitor.json', {'pushed_seq': seq, 'at': now_iso()})
+        say('ACK %d' % seq)
+
+    def export(self, since=0):
         records = self.records()
-        if pending:
-            since = (self._state('monitor.json') or {}).get('pushed_seq', 0)
         data = report.export(self.config, records, since or 0, self.status_data(records))
         data['monitor_url'] = self.info.get('monitor_url')
         say(json.dumps(data, ensure_ascii=False, indent=1))

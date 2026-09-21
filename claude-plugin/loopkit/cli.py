@@ -106,7 +106,7 @@ def cmd_monitor_push(args):
 
 def cmd_monitor_ack(args):
     run = session_run(args)
-    run.export(ack=args.seq)
+    run.monitor_ack(args.seq)
 
 
 def cmd_report(args):
@@ -203,7 +203,7 @@ def build_parser():
     p.add_argument('--gpu')
     p.add_argument('--timeout', type=float)
 
-    batch_p = sub.add_parser('batch', help='register the stop conditions of this /goal or /loop')
+    batch_p = sub.add_parser('batch', help='start or stop a batch (one /goal or /loop execution)')
     batch_sub = batch_p.add_subparsers(dest='batch_command', metavar='<batch-command>')
     batch_sub.required = True
     p = run_option(batch_sub.add_parser('start', help='head of every iteration: integrity, batch, stop check'))
@@ -230,11 +230,8 @@ def build_parser():
     p.add_argument('--idea', required=True)
     p.add_argument('--proposed-by', required=True, help='"agent" or analyst names, comma separated')
     p.add_argument('--learned', required=True, help='hypothesis; result; evidence (<= 300 characters)')
-    p = add('export', lambda a: session_run(a).export(a.since, a.pending, a.ack), 'ledger records for the monitor')
-    group = p.add_mutually_exclusive_group()
-    group.add_argument('--since', type=int)
-    group.add_argument('--pending', action='store_true', help='everything after the last --ack')
-    group.add_argument('--ack', type=int, help='mark records up to this seq as pushed')
+    p = add('export', lambda a: session_run(a).export(a.since), 'the ledger with derived fields, as JSON')
+    p.add_argument('--since', type=int, default=0, help='only records after this seq')
     p = add('show', lambda a: user_run(a).show(a.id, a.log), 'one candidate in full')
     p.add_argument('id')
     p.add_argument('--log', action='store_true', help='append the tail of the score log')

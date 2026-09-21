@@ -402,10 +402,8 @@ has '"derived"' "export includes derived fields"
 has '"front"' "export includes the front per record"
 has '"latest_seq"' "export includes latest_seq"
 LATEST="$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["latest_seq"])')"
-lk "$AGENT" export --ack "$LATEST"
-has "ACK $LATEST" "ack records the pushed seq"
-lk "$AGENT" export --pending
-same "$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["records"]))')" "0" "nothing pending after ack"
+lk "$AGENT" export --since "$LATEST"
+same "$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["records"]))')" "0" "export --since the latest seq returns no records"
 
 lk "$AGENT" monitor ack 0
 lk "$AGENT" monitor push

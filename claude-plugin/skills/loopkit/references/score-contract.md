@@ -58,7 +58,7 @@ Minimal failure: `{"schema": 1, "status": "fail", "reason": "build_failed: ..."}
 A candidate controls the code the script builds and runs. The script must make it impossible
 for that code to fake its own score:
 
-- Run the script with `python3 -I` and never import candidate code into the scorer.
+- Run the script with `python3 -I` and never import candidate code into the score script.
 - Recompute objectives and constraints from the candidate's outputs, with checkers from the
   snapshot (`$LOOPKIT_EVAL_DIR`), instead of trusting numbers the candidate prints.
 - Build checkers that need compiling from the snapshot's sources.

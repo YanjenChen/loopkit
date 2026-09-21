@@ -19,14 +19,18 @@ The framework (`loopkit` CLI) does every git and ledger write; the agent only ed
 
 ## Terms
 
-- **candidate**: a scored code version. Agent candidates are c000 (baseline), c001, ...;
-  commits the user sends in are human candidates h001, ....
+- **candidate**: a scored code version: c000 is the baseline, the agent's iterations produce
+  c001, c002, ..., and commits the user sends in are human candidates h001, ....
 - **objective**: a value to optimize, with a direction and a tolerance; **constraint**: a
   pass/fail condition; **extra**: recorded only.
-- **front**: the constraint-passing candidates that no other candidate dominates. A new
-  candidate is KEPT when it beats every front member in at least one objective by more than
-  the tolerance; otherwise REVERTED. FAILED means it failed a constraint, the scope check, or
-  the score script. Human candidates are OBSERVED until the user promotes them.
+- **front**: the current best candidates, none of which dominates another. It starts with
+  c000. A new candidate is KEPT when it beats every front member in at least one objective by
+  more than the tolerance: it joins the front, and the members it dominates leave. Otherwise
+  it is REVERTED and stays off the front. FAILED means it failed a constraint, the scope
+  check, or the score script.
+- **human candidate**: recorded as OBSERVED (or FAILED) and only watched, until the user
+  promotes it; a promoted one is judged against the front like a new candidate and can become
+  a parent. Its status stays OBSERVED.
 - **batch**: one /goal or /loop execution, with its own stop conditions: a number of
   iterations, a plateau (N iterations in a row without KEPT), objective targets, or the user
   stopping it (`/loopkit:stop`).
@@ -53,22 +57,25 @@ score (`run create`, `queue`, `evaluate`, `wait`) wait up to about 9 minutes and
 | `evaluate`, `wait` | run session | snapshot, scope check, score; keep waiting |
 | `record --idea --proposed-by --learned` | run session | commit the candidate to the ledger, print ITER |
 | `monitor push`, `monitor ack SEQ` | run session | documents for the monitor, and marking them pushed |
-| `export [--since N / --pending]` | anyone | the ledger with derived fields, as JSON |
+| `export [--since N]` | anyone | the ledger with derived fields, as JSON |
 | `show ID [--log]`, `lineage ID`, `diff A B` | anyone | inspect candidates |
 | `request-eval COMMIT`, `promote hNNN`, `adopt ID` | the user only | human candidates; get a candidate back as a branch |
 | `status`, `run list`, `run remove NAME --yes`, `check` | the user | inspect, clean up, verify integrity |
 | `report [--transcripts]` | anyone | collect a debug report (`/loopkit:report` also diagnoses it) |
 
-`--run NAME` selects a run; by default a command uses the run whose agent worktree it runs
-in, or the repository's newest run.
+`--run NAME` selects a run. Without it, the run-session commands (`batch start`, `queue`,
+`summary`, `checkout`, `precheck`, `evaluate`, `wait`, `record`, `export`, `monitor push` and
+`monitor ack`) use the run whose agent worktree they run in, and fail elsewhere; the other
+commands also fall back to the repository's newest run.
 
 ## Where things are
 
 A run lives in `~/loopkit-runs/<repo>/<run>/` (or under `$LOOPKIT_DATA_DIR`): `run.json` (frozen setup), `ledger.jsonl`,
 `queue/`, `eval-assets/` (the score script and benchmark snapshot), `agent/` and `eval/`
 (worktrees), `build/` and `agent-build/`, `knowledge.md`, `artifacts/<id>/` (score logs and
-results) and `work/` (the iteration in progress). The repository's `.git` holds only the
-candidate commits and `refs/evolve/<run>/...`. Runs are outside the plugin's own data
+results) and `work/` (the iteration in progress). In the repository's `.git`, loopkit adds
+only the candidate commits, the `refs/evolve/<run>/...` refs and the two worktrees'
+metadata. Runs are outside the plugin's own data
 directory, so updating or uninstalling the plugin leaves them alone; `loopkit run remove`
 deletes one. The run worktree's `.claude/settings.local.json` enables the plugin there, so
 the run session loads loopkit whatever scope it was installed with.

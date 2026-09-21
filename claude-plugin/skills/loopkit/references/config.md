@@ -66,8 +66,8 @@ The user said only "optimize hpwl and runtime"; init filled in the rest and the 
 | `extra` | Values that are only recorded. Missing or undeclared extras only warn. |
 | `score.command` | Argument list (no shell) run in the eval worktree root. `${LOOPKIT_EVAL_DIR}`, `${LOOPKIT_BUILD_DIR}`, `${LOOPKIT_RESULT}` and `${LOOPKIT_WORKTREE}` are expanded. Use `["bash", "-c", "..."]` if you need a shell. |
 | `score.timeout_s` | Beyond this the script is killed and the candidate FAILED with `score_timeout`. |
-| `score.env` | Extra environment, e.g. deterministic switches. `LOOPKIT_*` and `CUDA_VISIBLE_DEVICES` are set by the framework. `PYTHONPATH` is not inherited; set it here if the scorer needs it. |
-| `eval_assets` | Paths frozen into the run's snapshot. Tracked paths are taken from c000; untracked paths from the working tree; absolute paths are copied and appear under `${LOOPKIT_EVAL_DIR}/_abs/<path>`. |
+| `score.env` | Extra environment, e.g. deterministic switches. `LOOPKIT_*` and `CUDA_VISIBLE_DEVICES` are set by the framework. `PYTHONPATH` is not inherited; set it here if the score script needs it. |
+| `eval_assets` | Paths frozen into the run's snapshot. Tracked files are taken from c000; untracked or ignored files (also those inside a tracked directory) are copied from the working tree; absolute paths are copied and appear under `${LOOPKIT_EVAL_DIR}/_abs/<path>`. |
 | `scope` | Files the agent may change: matching an `include` glob and no `exclude` glob. `**` spans directories, `*` stays within one; a pattern without `/` matches the file name at any depth; a trailing `/` means the whole directory. `.loopkit/`, `.claude/`, `.gitignore`, `.gitattributes`, `.gitmodules` and submodules are always protected. |
 | `workflow.mode` | `single` or `multi`. |
 | `workflow.analysts` | multi: `name` (letters, digits, `_`, `-`; not `agent`), `focus`, optional `questions`, `evidence`, `red_flags` (string or list), and `web: true` for a literature analyst. |

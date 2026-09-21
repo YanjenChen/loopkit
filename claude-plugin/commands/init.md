@@ -14,8 +14,9 @@ Talk to the user in the language they write in. Ask with AskUserQuestion only wh
 changes the setup, and batch the questions. Invoke the `loopkit:loopkit` skill first: its
 reference describes the config fields and the score script contract in detail.
 
-Everything below happens in this repository. Only step 7 creates the run; before that, nothing
-outside `.loopkit/` changes.
+Everything below happens in this repository. Only step 7 creates the run and commits; before
+that, the repository changes only inside `.loopkit/` (the trial runs of step 4 build in
+`~/loopkit-runs/`, outside the repository).
 
 ## 1. Input
 
@@ -89,7 +90,7 @@ first records.
 ## 6. Confirm
 
 Show the user, item by item: the config (summarized, then the full file on request), the
-score script, the trial results, the knowledge summary, and the monitor URL. Adjust and
+score script, the trial results, the codebase summary, and the monitor URL. Adjust and
 repeat steps 3 to 5 until the user confirms everything.
 
 ## 7. Create the run
@@ -104,10 +105,11 @@ the flagged commands in step 4. `run create`:
 2. creates the run directory, the agent and eval worktrees at c000, and the build
    directories;
 3. snapshots the eval assets;
-4. scores c000 in the eval worktree (PENDING: run `loopkit --run <name> wait`). c000 must pass
+4. writes `run.json`, starts the ledger, and writes the agent worktree's settings: permission
+   rules, GPU environment, the plugin enabled there, and the run marker;
+5. scores c000 in the eval worktree (PENDING: run `loopkit --run <name> wait`). c000 must pass
    every constraint;
-5. writes the ledger and the c000 ref;
-6. writes the agent worktree's permission rules, GPU environment and run marker.
+6. records c000 in the ledger and creates its ref.
 
 Then push c000 to the monitor, which replaces its sample data:
 `loopkit monitor push --run <name>`, the Artifact `write_db` call as described in

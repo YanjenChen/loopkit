@@ -308,7 +308,7 @@ def read_only_problem(command):
             continue
         if executable == 'loopkit':
             sub = loopkit_subcommand(args)
-            if sub not in _LOOPKIT_READ or '--ack' in args:
+            if sub not in _LOOPKIT_READ:
                 return 'loopkit %s is not a read-only command' % sub
             continue
         if not is_read_only(executable, args):

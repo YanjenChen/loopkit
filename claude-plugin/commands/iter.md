@@ -116,9 +116,9 @@ proposal format below before you implement it. `--proposed-by` is `agent`.
    too; a pure merge without other changes is allowed. Your own changes must stay inside the
    scope; edits made only to resolve conflicts are exempt.
 2. **Precheck** (when the config has one): `loopkit precheck` builds without scoring. Fix
-   compile errors one at a time, crashes and build errors first, then run it again. Stop at
-   the attempt limit it prints and continue anyway: a failing build is recorded as FAILED
-   rather than blocking the run.
+   the build errors one at a time, the first one first, and run it again. Stop at the attempt
+   limit it prints and continue anyway: a failing build is recorded as FAILED rather than
+   blocking the run.
 3. **Evaluate**: `loopkit evaluate` snapshots the worktree, checks the scope and scores the
    snapshot. It prints the files that changed and then the RESULT. If the list of changed
    files shows something you did not mean to change (build products, stray files), fix that
