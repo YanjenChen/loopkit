@@ -4,7 +4,7 @@ Whether you're fixing a typo, adding examples, creating a new sub-command, or im
 
 ## Quick Start
 
-Autoresearch is a Claude Code plugin: Markdown files that Claude Code discovers from the plugin's `skills/` and `commands/` directories, plus shell runtime helpers and Node.js hooks. Everything lives in `claude-plugin/`, the single source of truth. No build step, no compilation, no sync step — edit a file in `claude-plugin/`, reload the plugin, see your changes.
+Autoresearch is a Claude Code plugin: Markdown files that Claude Code discovers from the plugin's `skills/` and `commands/` directories, plus shell runtime helpers and Python hooks. Everything lives in `claude-plugin/`, the single source of truth. No build step, no compilation, no sync step — edit a file in `claude-plugin/`, reload the plugin, see your changes.
 
 ```bash
 # Clone the repo
@@ -18,7 +18,7 @@ Then, in Claude Code:
 2. **Install the plugin** from that marketplace.
 3. **Edit and reload.** Plugins from a local-directory marketplace load in place from that folder, so edit files in `claude-plugin/` directly and run `/reload-plugins` to pick up each change.
 
-The hook guardrails need Node.js 18 or newer, with `node` on the PATH of the shell Claude Code uses.
+The hook guardrails need Python 3.8 or newer, with `python3` on the PATH of the shell Claude Code uses.
 
 ## Repository Structure (v2.2.2)
 
@@ -33,7 +33,7 @@ autoresearch/
 │   ├── commands/
 │   │   ├── autoresearch.md                        ← Core loop (self-contained, ~110 lines)
 │   │   └── autoresearch/                          ← 12 subcommand files (self-contained)
-│   └── hooks/                                     ← Hook guardrails (hooks.json, .cjs hooks, lib/)
+│   └── hooks/                                     ← Hook guardrails (hooks.json, .py hooks, lib/)
 ├── .claude-plugin/marketplace.json                ← Plugin marketplace entry (source: ./claude-plugin)
 ├── tests/                                         ← Shell test suites + fixtures
 ├── guide/                                         ← Guides — one per command + advanced patterns
@@ -134,7 +134,7 @@ Test changes by hand in a real Claude Code session:
 4. Verify behavior matches your changes
 5. Try edge cases — wrong metric? 0 files in scope? Guard always fails?
 
-The repo also includes three shell-based test suites for the plugin's hook and runtime contracts. There is no CI, so run them locally:
+The repo also includes three shell-based test suites for the plugin's hook and runtime contracts. They need `python3` on the PATH. There is no CI, so run them locally:
 
 - `bash tests/test-hooks.sh` — hook contracts and fail-open behavior
 - `bash tests/test-orchestrator.sh` — orchestrator routing seam (`claude-plugin/skills/autoresearch/scripts/orchestrate.sh`)
@@ -152,42 +152,60 @@ Thanks for contributing!
 
 ### Adding a New Hook
 
-1. Create `claude-plugin/hooks/{name}.cjs`
-2. Use the shared library: `require('./lib/ar-hook-utils.cjs')`
+1. Create `claude-plugin/hooks/{name}.py`
+2. Use the shared library `lib/ar_hook_utils.py`: put `lib/` on `sys.path`, then import from `ar_hook_utils`
 3. Follow the pattern:
-   ```js
-   'use strict';
-   const { isEnabled, safeParseStdin, log, block, allow, inject } = require('./lib/ar-hook-utils.cjs');
-   try {
-     if (!isEnabled('hook-name')) process.exit(0);
-     const stdin = safeParseStdin();
-     if (!stdin) process.exit(0);
-     // ... hook logic ...
-     process.exit(0);
-   } catch {
-     process.exit(0); // fail-open
-   }
+   ```python
+   #!/usr/bin/env python3
+   """PreToolUse hook: one-line summary. Fails open on any error."""
+
+   import os
+   import sys
+
+   sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
+
+   from ar_hook_utils import (  # noqa: E402
+       ask_permission, block, inject, is_enabled, js_truthy, log, prop, run, safe_parse_stdin,
+   )
+
+   HOOK_NAME = 'hook-name'
+
+
+   def main():
+       if not is_enabled(HOOK_NAME):
+           sys.exit(0)
+       stdin = safe_parse_stdin(HOOK_NAME)
+       if not js_truthy(stdin):
+           sys.exit(0)
+       command = prop(prop(stdin, 'tool_input'), 'command')
+       # ... hook logic, e.g. log(HOOK_NAME, {'action': 'block'}) then block(reason) ...
+       # block(reason) exits 2; ask_permission(reason) and inject(text) exit 0
+       sys.exit(0)
+
+
+   if __name__ == '__main__':
+       run(HOOK_NAME, main)  # fail-open: any unexpected exception exits 0 with a diagnostic
    ```
-4. Register in `claude-plugin/hooks/hooks.json` under the correct event, invoking it through `node-hook-runner.sh` like the existing entries
+4. Register in `claude-plugin/hooks/hooks.json` under the correct event, invoking it through `hook-runner.sh` like the existing entries
 5. Run `/reload-plugins` to load the new registration
 6. Run `bash tests/test-hooks.sh` to verify
 
 ### Hook Rules
 
-- **Fail-open:** Always wrap in try/catch, always exit 0 on error, and emit a visible redacted diagnostic when available
-- **No console.log:** Corrupts stdout JSON. Use `process.stderr.write()` for debug
-- **No external deps:** Pure Node.js builtins only (exception: vendored `lib/ignore.cjs`)
+- **Fail-open:** Always run the hook body through `run(HOOK_NAME, main)`, so any error exits 0 and emits a visible redacted diagnostic
+- **No print():** Stray stdout corrupts the JSON output. Write debug output to `sys.stderr`
+- **No external deps:** Python standard library only, compatible with Python 3.8+ (exception: vendored `lib/ignore.py`)
 - **Exit codes:** 0 = allow/inject, 2 = block. No other exit codes
-- **State:** Use the OS temporary directory via `loadSessionState()` / `saveSessionState()`; this is not a repo path
+- **State:** Use the OS temporary directory via `load_session_state()` / `save_session_state()`; this is not a repo path
 
 ### Testing Hooks
 
 ```bash
-# Syntax check
-node --check claude-plugin/hooks/my-hook.cjs
+# Syntax check (compiles without writing __pycache__)
+python3 -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' claude-plugin/hooks/my-hook.py
 
 # Manual test
-echo '{"tool_name":"Read","tool_input":{"file_path":"test.txt"}}' | node claude-plugin/hooks/my-hook.cjs
+echo '{"tool_name":"Read","tool_input":{"file_path":"test.txt"}}' | python3 -B claude-plugin/hooks/my-hook.py
 echo "Exit code: $?"
 
 # Full test suite

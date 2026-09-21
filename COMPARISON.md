@@ -362,7 +362,7 @@ autoresearch/
 | **Hardware** | NVIDIA GPU required (H100/A100/RTX) | No special hardware |
 | **GPU required** | ✅ Yes (CUDA 12.8+) | ❌ No |
 | **Programming languages** | Python only | Any language (TypeScript, Python, Go, Rust, Java, Ruby, etc.) |
-| **Dependencies** | PyTorch 2.9.1, CUDA, numpy, tqdm | Claude Code only |
+| **Dependencies** | PyTorch 2.9.1, CUDA, numpy, tqdm | Claude Code, plus `python3` (3.8+) for the hook guardrails |
 | **Installation** | git clone + uv sync + data prep | `/plugin marketplace add YanjenChen/loopkit` |
 | **Cost model** | GPU compute ($2-5/hour for H100) | Claude API tokens |
 | **Offline capable** | ✅ Yes (after data prep) | ❌ Requires Claude API |

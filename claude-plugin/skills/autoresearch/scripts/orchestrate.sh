@@ -374,8 +374,8 @@ verdict() {
 # ---------------------------------------------------------------------------
 # validate-state: schema gate for orchestrator-state.json. The ledger is the
 # loop's evidence trail; a malformed one must not be trusted to route from.
-# Prints "valid" exit 0 | "invalid" exit 2. Uses Node's JSON parser (the hooks
-# already require Node) rather than approximating JSON with grep.
+# Prints "valid" exit 0 | "invalid" exit 2. Uses Python's JSON parser (the hooks
+# already require python3) rather than approximating JSON with grep.
 # ---------------------------------------------------------------------------
 validate-state() {
   local state_file="${1:?usage: validate-state <state.json>}"
@@ -383,14 +383,25 @@ validate-state() {
     echo "invalid"; return 2
   fi
 
-  if ! node -e '
-    const fs = require("fs");
-    const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-    const strings = ["goal", "archetype", "predicate"];
-    if (!strings.every((key) => typeof state[key] === "string" && state[key].length > 0)) process.exit(1);
-    if (!Number.isInteger(state.cycle) || state.cycle < 0) process.exit(1);
-    if (!Array.isArray(state.units_remaining) || !Array.isArray(state.pipeline_log)) process.exit(1);
-  ' "$state_file" 2>/dev/null; then
+  if ! python3 -I -X utf8 -c '
+import json, sys
+
+def reject_constant(name):
+    raise ValueError(name)  # NaN / Infinity are not JSON
+
+with open(sys.argv[1], encoding="utf-8", errors="replace") as handle:
+    state = json.loads(handle.read(), parse_constant=reject_constant)
+if not isinstance(state, dict):
+    sys.exit(1)
+if not all(isinstance(state.get(key), str) and state[key] for key in ("goal", "archetype", "predicate")):
+    sys.exit(1)
+cycle = state.get("cycle")
+if (isinstance(cycle, bool) or not isinstance(cycle, (int, float)) or cycle != cycle
+        or not float(cycle).is_integer() or cycle < 0):
+    sys.exit(1)
+if not isinstance(state.get("units_remaining"), list) or not isinstance(state.get("pipeline_log"), list):
+    sys.exit(1)
+' "$state_file" 2>/dev/null; then
     echo "invalid"; return 2
   fi
 
@@ -411,12 +422,21 @@ screen-state-predicate() {
   fi
 
   local pred
-  if ! pred=$(node -e '
-    const fs = require("fs");
-    const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-    if (typeof state.predicate !== "string" || state.predicate.length === 0 || state.predicate.includes("\0")) process.exit(1);
-    process.stdout.write(state.predicate);
-  ' "$state_file" 2>/dev/null); then
+  if ! pred=$(python3 -I -X utf8 -c '
+import json, sys
+
+def reject_constant(name):
+    raise ValueError(name)  # NaN / Infinity are not JSON
+
+with open(sys.argv[1], encoding="utf-8", errors="replace") as handle:
+    state = json.loads(handle.read(), parse_constant=reject_constant)
+predicate = state.get("predicate") if isinstance(state, dict) else None
+if not isinstance(predicate, str) or not predicate or "\0" in predicate:
+    sys.exit(1)
+# Lone surrogates cannot be encoded; replace them the way Node wrote them out.
+predicate = "".join("\ufffd" if 0xD800 <= ord(char) <= 0xDFFF else char for char in predicate)
+sys.stdout.buffer.write(predicate.encode("utf-8"))
+' "$state_file" 2>/dev/null); then
     echo "invalid"; return 2
   fi
 

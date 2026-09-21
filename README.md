@@ -116,7 +116,7 @@ Before looping, Claude performs a one-time setup:
 
 ## Hooks & Safety
 
-Hooks are defense-in-depth guardrails, not a security sandbox. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled. They run on Node.js, so they need `node` 18 or newer on the PATH of the shell Claude Code uses.
+Hooks are defense-in-depth guardrails, not a security sandbox. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled. They are Python 3 scripts (standard library only), so they need Python 3.8 or newer, with `python3` on the PATH of the shell Claude Code uses.
 
 ### What's Protected
 
@@ -225,7 +225,7 @@ Install through Claude Code's plugin manager: the `/plugins` dialog in the VS Co
 
 > **Note:** Start a new Claude Code session after installing. Reference files aren't resolvable in the same session where installation happened — this is a Claude Code platform limitation.
 
-**Prerequisite for the hook guardrails:** Node.js 18 or newer, with `node` on the PATH of the shell Claude Code uses. Nothing checks this at install time. See [Hooks & Safety](#hooks--safety).
+**Prerequisite for the hook guardrails:** Python 3.8 or newer, with `python3` on the PATH of the shell Claude Code uses. Nothing checks this at install time. See [Hooks & Safety](#hooks--safety).
 
 **Updating (no reinstall needed):**
 ```
@@ -576,7 +576,7 @@ autoresearch/
 │   │   └── scripts/                               ← Bundled runtime helpers
 │   │       ├── orchestrate.sh                     ← Orchestrator routing seam
 │   │       └── score-regression.sh                ← Regression scoring backend
-│   ├── hooks/                                     ← Hook guardrails (hooks.json + Node.js hooks)
+│   ├── hooks/                                     ← Hook guardrails (hooks.json + Python hooks)
 │   └── commands/
 │       ├── autoresearch.md                        ← Core loop (self-contained, ~100 lines)
 │       └── autoresearch/                          ← 12 subcommand files (self-contained)

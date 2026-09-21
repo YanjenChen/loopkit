@@ -4,7 +4,7 @@ Autoresearch v2.2.2 includes hook guardrails that fire automatically on every Cl
 
 ## How Hooks Work
 
-Hooks are Node.js scripts that intercept Claude Code events. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled. They need Node.js 18 or newer, with `node` on the PATH of the shell Claude Code uses; nothing checks this at install time.
+Hooks are Python 3 scripts (standard library only) that intercept Claude Code events. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled. They need Python 3.8 or newer, with `python3` on the PATH of the shell Claude Code uses; nothing checks this at install time.
 
 Each hook reads JSON from stdin, makes a decision, and writes JSON to stdout with an exit code:
 - **Exit 0** — allow, ask through the native host boundary, or inject context
@@ -25,9 +25,7 @@ Blocks file access to directories that waste context tokens.
 - `coverage/`, `.next/`, `.nuxt/`, `venv/`, `.venv/`, `env/`
 - `.terraform/`, `.aws/`, `.ssh/`, `*.log`
 
-**Bash handling:** Smart argument parsing — only blocks actual file path arguments, not string literals that mention blocked patterns.
-
-**Build tool allowlist:** Commands starting with `npm`, `yarn`, `pnpm`, `bun`, `pip`, `cargo`, `go`, `rustc`, `make`, `cmake`, `mvn`, `gradle`, `docker`, `kubectl`, `terraform`, `helm`, `python`, `node` bypass blocking entirely.
+**Bash handling:** Smart argument parsing — only blocks actual file path arguments, not string literals that mention blocked patterns. Build commands such as `npm test` or `make` pass because their arguments are not blocked paths; `npm test && cat node_modules/x.js` is still blocked.
 
 **Custom patterns:** Create a `.ckignore` file at your project root using gitignore syntax:
 
@@ -166,7 +164,7 @@ Works with Slack, Discord, and any webhook that accepts JSON POST.
 
 ## Session State
 
-All hooks share `ar-session-{hash}.json` in the operating system's temporary directory (`os.tmpdir()` in Node). The hook runner preserves `TMPDIR`, `TEMP`, and `TMP`, so this works on macOS, Linux, and native Windows with Git Bash. The hash is derived from your project directory and session ID. Fields:
+All hooks share `ar-session-{hash}.json` in the operating system's temporary directory (`TMPDIR`, then `TMP`, then `TEMP`, falling back to `/tmp`). The hook runner preserves `TMPDIR`, `TEMP`, and `TMP`, so this works on macOS, Linux, and native Windows with Git Bash. The hash is derived from your project directory and session ID. Fields:
 
 - `projectRoot` — git root or cwd
 - `plansPath` — plans/ directory
@@ -195,18 +193,18 @@ Records contain bounded metadata only: timestamp, hook name, action, safe catego
 ```
 claude-plugin/hooks/
 ├── hooks.json              # Hook registration (auto-loaded when the plugin is enabled)
-├── node-hook-runner.sh     # Shell wrapper for clean Node.js execution
+├── hook-runner.sh          # Shell wrapper for clean Python execution
 ├── .ckignore               # Baseline blocked patterns
 ├── lib/
-│   ├── ar-hook-utils.cjs   # Shared utilities
-│   └── ignore.cjs          # Vendored gitignore pattern matcher
-├── scout-block.cjs         # Directory access blocker
-├── privacy-block.cjs       # Sensitive file protector
-├── dangerous-cmd-block.cjs # Destructive command blocker
-├── iteration-context.cjs   # TSV state injector
-├── subagent-context.cjs    # Subagent context provider
-├── dev-rules-reminder.cjs  # Post-compaction rule reminder
-├── simplify-gate.cjs       # Shipping LOC gate
-├── session-init.cjs        # Session state initializer
-└── stop-notify.cjs         # Session end notifier
+│   ├── ar_hook_utils.py    # Shared utilities
+│   └── ignore.py           # Vendored gitignore pattern matcher
+├── scout-block.py          # Directory access blocker
+├── privacy-block.py        # Sensitive file protector
+├── dangerous-cmd-block.py  # Destructive command blocker
+├── iteration-context.py    # TSV state injector
+├── subagent-context.py     # Subagent context provider
+├── dev-rules-reminder.py   # Post-compaction rule reminder
+├── simplify-gate.py        # Shipping LOC gate
+├── session-init.py         # Session state initializer
+└── stop-notify.py          # Session end notifier
 ```

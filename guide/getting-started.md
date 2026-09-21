@@ -21,7 +21,7 @@ Autoresearch installs through Claude Code's plugin manager: the `/plugins` dialo
 /plugin install loopkit@loopkit
 ```
 
-Enabling the plugin also registers the hook guardrails from its `hooks/hooks.json`. The hooks run on Node.js: they need `node` 18 or newer on the PATH of the shell Claude Code uses. Nothing checks this at install time.
+Enabling the plugin also registers the hook guardrails from its `hooks/hooks.json`. The hooks run on Python 3: they need `python3` (Python 3.8 or newer) on the PATH of the shell Claude Code uses. Nothing checks this at install time.
 
 ### Verify Installation
 

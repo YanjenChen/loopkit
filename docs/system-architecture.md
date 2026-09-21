@@ -29,7 +29,7 @@ graph TB
         CMDS[commands/autoresearch/*.md\n12 self-contained subcommand files]
         REF[skills/autoresearch/references/\nshared routing and review references]
         RT[skills/autoresearch/scripts/\norchestrate.sh + score-regression.sh]
-        HK[hooks/\nhooks.json + 9 hook .cjs files]
+        HK[hooks/\nhooks.json + 9 hook .py files]
     end
 
     CC --> PS --> MKT
@@ -106,17 +106,17 @@ claude-plugin/                             # Single source of truth — edited d
 │       └── score-regression.sh            # Regression scoring backend
 └── hooks/                                 # Hook system
     ├── hooks.json                         # Auto-registration
-    ├── node-hook-runner.sh                # Shell wrapper
+    ├── hook-runner.sh                     # Shell wrapper
     ├── .ckignore                          # Baseline blocked patterns
     ├── lib/                               # Shared modules
-    └── [9 hook .cjs files]
+    └── [9 hook .py files]
 
 .claude-plugin/marketplace.json            # Plugin marketplace entry — source: ./claude-plugin
 ```
 
 ## Hook System Architecture
 
-Autoresearch includes defense-in-depth hook guardrails. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled; there is no other registration path. Each entry runs a `.cjs` hook through `node-hook-runner.sh`, so the hooks need Node.js 18 or newer on the PATH of the shell Claude Code uses. Nothing checks this at install time.
+Autoresearch includes defense-in-depth hook guardrails. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled; there is no other registration path. Each entry runs a `.py` hook through `hook-runner.sh` (`python3 -I -B -X utf8` under a whitelisted `env -i` environment), so the hooks need Python 3.8 or newer, with `python3` on the PATH of the shell Claude Code uses. They use the Python standard library only. Nothing checks this at install time.
 
 ### Hook Lifecycle
 
@@ -149,7 +149,7 @@ graph LR
 
 ### State Management
 
-Hooks share `ar-session-{hash}.json` through Node's operating-system temporary directory (hash = md5 of cwd + session_id). It is created by `session-init`, consumed by context injection hooks, and cleaned up by `stop-notify`. The hook runner preserves `TMPDIR`, `TEMP`, and `TMP` for native Windows with Git Bash as well as macOS and Linux.
+Hooks share `ar-session-{hash}.json` through the operating-system temporary directory (`TMPDIR`, then `TMP`, then `TEMP`, falling back to `/tmp`; hash = md5 of cwd + session_id). It is created by `session-init`, consumed by context injection hooks, and cleaned up by `stop-notify`. The hook runner preserves `TMPDIR`, `TEMP`, and `TMP` for native Windows with Git Bash as well as macOS and Linux.
 
 ### Plugin Distribution
 
@@ -160,10 +160,10 @@ claude-plugin/
 ├── .claude-plugin/plugin.json    # v2.2.2
 ├── hooks/                        # auto-registers via hooks.json
 │   ├── hooks.json
-│   ├── node-hook-runner.sh
+│   ├── hook-runner.sh
 │   ├── lib/
-│   │   ├── ar-hook-utils.cjs
-│   │   └── ignore.cjs
+│   │   ├── ar_hook_utils.py
+│   │   └── ignore.py
 │   └── [9 hook files]
 ├── commands/
 └── skills/
@@ -182,7 +182,7 @@ claude-plugin/
 | 8 TSV status values | baseline, keep, discard, crash, no-op, hook-blocked, metric-error, keep (reworked) |
 | handoff.json for chain integration | Structured handoff between subcommands; evals reads `*-results.tsv` directly |
 | Hook system with fail-open design | Hooks never block Claude due to crashes; safety without fragility, with visible redacted diagnostics on failure paths |
-| Session state via OS temp file | Hooks are subprocesses and cannot share environment state; Node's OS temp directory persists the bounded session record across hook calls |
+| Session state via OS temp file | Hooks are subprocesses and cannot share environment state; the OS temp directory persists the bounded session record across hook calls |
 | Iteration-based throttling (every 5th) | Autoresearch is loop-driven; time-based throttling doesn't match iteration cadence |
 
 ## Integration Points

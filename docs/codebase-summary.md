@@ -8,15 +8,15 @@ Autoresearch v2.2.2 is a modular autonomous iteration framework for Claude Code,
 
 | Directory | Purpose | Primary Types |
 |-----------|---------|---------------|
-| `claude-plugin/` | Claude Code plugin — the single source of truth, edited directly | `.md`, `.json`, `.cjs`, `.sh` |
+| `claude-plugin/` | Claude Code plugin — the single source of truth, edited directly | `.md`, `.json`, `.py`, `.sh` |
 | `claude-plugin/commands/` | Core loop + 12 subcommand files (self-contained) | `.md` |
 | `claude-plugin/skills/autoresearch/` | Thin routing SKILL.md + 4 reference files + runtime helpers (`scripts/`) | `.md`, `.sh` |
-| `claude-plugin/hooks/` | Hook guardrails, registered via `hooks.json` when the plugin is enabled | `.cjs`, `.json`, `.sh` |
+| `claude-plugin/hooks/` | Hook guardrails, registered via `hooks.json` when the plugin is enabled | `.py`, `.json`, `.sh` |
 | `.claude-plugin/` | Marketplace manifest pointing at `./claude-plugin` | `.json` |
 | `guide/` | User-facing documentation and tutorials | `.md` |
 | `guide/scenario/` | Real-world scenario walkthroughs (10 domains) | `.md` |
 | `docs/` | Project documentation | `.md` |
-| `tests/` | Shell test suites and fixtures | `.sh` |
+| `tests/` | Shell test suites and fixtures | `.sh`, `.py` |
 | Root | README, LICENSE, COMPARISON, CONTRIBUTING | `.md` |
 
 ## Key Files
@@ -63,7 +63,7 @@ Autoresearch v2.2.2 is a modular autonomous iteration framework for Claude Code,
 | Claude Code CLI | Runtime (host) | Plugin system, skill loading, command registration |
 | Git | Runtime (system) | State management, rollback, memory, staleness detection |
 | Bash/Zsh | Runtime (system) | Shell scripts, verify/guard commands |
-| Node.js 18+ | Runtime (system) | Hook guardrails — `node` must be on the PATH of the shell Claude Code uses; nothing checks this at install time |
+| Python 3.8+ | Runtime (system) | Hook guardrails (standard library only) and the JSON checks behind `orchestrate.sh validate-state` / `screen-state-predicate` — `python3` must be on the PATH of the shell Claude Code uses; nothing checks this at install time |
 
 No `package.json`, `requirements.txt`, `Cargo.toml`, or Python wrapper CLI. The v2.0.x Python wrapper (`autoresearch_cli.py`) was removed in v2.1.0.
 

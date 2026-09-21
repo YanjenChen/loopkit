@@ -2,11 +2,12 @@
 
 ## Language and Format
 
-This project is entirely **markdown-based** with shell script helpers. There is no compiled code. Standards cover markdown authoring, skill definition patterns, and shell scripting conventions.
+This project is entirely **markdown-based** with shell script helpers and Python hook guardrails. There is no compiled code. Standards cover markdown authoring, skill definition patterns, shell scripting conventions, and hook scripts.
 
 ## File Naming
 
-- **kebab-case** for all file names: `security-checklist.md`, `score-regression.sh`
+- **kebab-case** for all file names: `security-checklist.md`, `score-regression.sh`, `scout-block.py`
+- Exception: Python library modules and test fixtures use **snake_case**: `hooks/lib/ar_hook_utils.py` and `hooks/lib/ignore.py` (Python cannot import a hyphenated module name), plus `tests/fixtures/hooks/webhook_smoke.py` and `https_webhook_stub.py`
 - Names should be descriptive enough that an LLM understands purpose without reading content
 - Command files match their command name: `debug.md` for `/autoresearch:debug`
 
@@ -73,6 +74,14 @@ The `# metric_direction` comment on line 1 enables the evals command to auto-det
 - `set -euo pipefail` for strict error handling
 - Runtime helpers (`orchestrate.sh`, `score-regression.sh`) live only in `claude-plugin/skills/autoresearch/scripts/` and are edited there directly; there are no other copies
 - Skill and command text resolves `scripts/...` relative to the installed skill directory, never the caller's working directory
+
+## Hook Script Standards
+
+- Python 3, standard library only, compatible with Python 3.8+; the gitignore matcher is vendored as `lib/ignore.py` rather than installed
+- Shebang: `#!/usr/bin/env python3`. `hooks.json` never calls a hook directly; every entry goes through `hooks/hook-runner.sh`, which runs `python3 -I -B -X utf8` (isolated mode, no bytecode files, UTF-8) under a whitelisted `env -i` environment
+- Shared helpers come from `lib/ar_hook_utils.py`, imported after `sys.path.insert(0, ... 'lib')`
+- Fail open: run the hook body through `run(HOOK_NAME, main)`. Exit 0 to allow, ask, or inject; exit 2 to block. Only the hook's JSON reply goes to stdout
+- Template and rules: [Hook Development](../CONTRIBUTING.md#hook-development)
 
 ## Plugin Distribution
 
