@@ -1,690 +1,119 @@
-<div align="center">
+# loopkit
 
-# Autoresearch
+loopkit 是一個 Claude Code plugin，讓 `/goal` 或 `/loop` 在任何 repo 上反覆優化程式碼：每一輪分析目前的程式碼和演化歷史、提出一個改法、實作、用你的評分腳本評分，只有真的變好的版本才會留在前緣上。
 
-**Turn [Claude Code](https://docs.anthropic.com/en/docs/claude-code) into a relentless improvement engine.**
+它為長時間、無人值守的執行而設計，例如整夜優化一個 GPU placer（C++/CUDA/LibTorch/Python，CMake），也可以用在程式作業等任何有評分方式的專案。
 
-Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) — constraint + mechanical metric + autonomous iteration = compounding gains.
+- **固定格式的迭代**：每一輪由 `/loopkit:iter` 執行，開頭和結尾由框架固定，中段的 workflow 可以是單一 agent，或多個 analyst 加上一個 decider。
+- **多目標**：支援多個優化目標，以容忍度判斷好壞，維護 Pareto 前緣。
+- **你可以同時開發**：run 在獨立的 worktree 和資料目錄裡進行，不動你的工作目錄。你的 commit 也可以送進來評估，再決定要不要加入演化。
+- **評分完整性**：評分腳本和 benchmark 在建立 run 時固定成快照；範圍檢查、權限規則、hook 和竄改偵測防止 agent 改到不該改的東西。
+- **ledger 和 monitor**：所有結果寫進一份 append-only、有 hash chain 的 ledger；monitor 是一個 Claude artifact，顯示前緣、evolve tree 和每個候選的細節。
 
-**loopkit** is a fork of [uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch) by Udit Goenka (MIT License).
+## 需求
 
-[![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blue?logo=anthropic&logoColor=white)](https://docs.anthropic.com/en/docs/claude-code)
-[![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/uditgoenka/autoresearch/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+- Claude Code 2.1.91 以上（plugin 的 `bin/` 會加進 Bash 的 PATH）
+- git 2.31 以上、Python 3.8 以上，只用標準函式庫
+- Linux 或 WSL；不需要 Docker
 
-[![Based on](https://img.shields.io/badge/Based_on-Karpathy's_Autoresearch-orange)](https://github.com/karpathy/autoresearch)
-[![Follow @iuditg](https://img.shields.io/badge/Follow-@iuditg-000000?style=flat&logo=x&logoColor=white)](https://x.com/intent/follow?screen_name=iuditg)
-[![Support](https://img.shields.io/badge/Support-PayPal-00457C?style=flat&logo=paypal&logoColor=white)](https://paypal.me/uditgoenka)
+## 安裝
 
-<br>
-
-*"Set the GOAL → The agent runs the LOOP → You wake up to results"*
-
-*You don't need AGI. You need a goal, a metric, and a loop that never quits.*
-
-**Built for Claude Code. The plugin install includes the core skill, bundled runtime, and hook guardrails.**
-
-> **v2.2.0 — Autonomous Orchestrator:** Type a plain-language goal to `/autoresearch` and it classifies your goal, derives a Success predicate, confirms it once, then loops across subcommands until done. No manual chaining required. `Metric:`/`Verify:` invocations run the classic loop unchanged. See [guide/autoresearch-orchestrator.md](guide/autoresearch-orchestrator.md).
-
-<br>
-
-[How It Works](#how-it-works) · [Commands](#commands) · [Quick Start](#quick-start) · [Guides](guide/) · [FAQ](#faq)
-
-</div>
-
----
-
-```
-     PLAN             LOOP            DEBUG             FIX             SECURE
- ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
- │   Goal   │     │  Modify  │     │   Find   │     │   Fix    │     │  STRIDE  │
- │  Metric  │────▶│  Verify  │────▶│   Bugs   │────▶│  Errors  │────▶│  OWASP   │
- │  Scope   │     │Keep/Drop │     │  Trace   │     │  Repair  │     │ Red Team │
- └──────────┘     └──────────┘     └──────────┘     └──────────┘     └──────────┘
- /autoresearch:   /autoresearch    /autoresearch:   /autoresearch:   /autoresearch:
-   plan                              debug            fix              security
-
- ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
- │  Probe   │     │ Scenario │     │ Predict  │     │  Reason  │
- │ Require- │     │   Edge   │     │ 5-Expert │     │  Debate  │
- │  ments   │     │  Cases   │     │  Swarm   │     │ Converge │
- └──────────┘     └──────────┘     └──────────┘     └──────────┘
- /autoresearch:   /autoresearch:   /autoresearch:   /autoresearch:
-   probe            scenario         predict          reason
-
- ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
- │  Learn   │     │ Improve  │     │   Eval   │     │ Baseline │
- │   Docs   │     │ Research │     │ Analyze  │     │   Diff   │
- │   Gen    │     │   PRDs   │     │ Results  │     │ Verdict  │
- └──────────┘     └──────────┘     └──────────┘     └──────────┘
- /autoresearch:   /autoresearch:   /autoresearch:   /autoresearch:
-   learn            improve          evals            regression
-```
-
----
-
-## Why This Exists
-
-[Karpathy's autoresearch](https://github.com/karpathy/autoresearch) demonstrated that a 630-line Python script could autonomously improve ML models overnight — **100 experiments per night** — by following simple principles: one metric, constrained scope, fast verification, automatic rollback, git as memory.
-
-**Claude Autoresearch generalizes these principles to ANY domain.** Not just ML — code, content, marketing, sales, HR, DevOps, or anything with a number you can measure.
-
-**v2.1.0 is a major architecture rebuild.** The monolithic SKILL.md (813 lines, ~100K tokens per invocation) is replaced with a thin 41-line routing file and 12 self-contained command files (94–120 lines each, ~5–8K tokens per invocation). That is a **95% token reduction** with the same capability surface.
-
----
-
-## How It Works
-
-```
-LOOP (N iterations or until done):
-  1. Review current state + git history + results log
-  2. Pick the next change (based on what worked, what failed, what's untried)
-  3. Make ONE focused change
-  4. Git commit (before verification)
-  5. Run mechanical verification (tests, benchmarks, scores)
-  6. If improved → keep. If worse → git revert. If crashed → fix or skip.
-  7. Log the result
-  8. Repeat until N iterations complete or goal is met.
-```
-
-Every improvement stacks. Every failure auto-reverts. Progress is logged in TSV format.
-
-### The Setup Phase
-
-Before looping, Claude performs a one-time setup:
-
-1. **Read context** — reads all in-scope files
-2. **Define goal** — extracts or asks for a mechanical metric
-3. **Define scope** — which files can be modified vs read-only
-4. **Establish baseline** — runs verification on current state (iteration #0)
-5. **Confirm and go** — shows setup, then begins the loop
-
-### 8 Critical Rules
-
-| # | Rule |
-|---|------|
-| 1 | **Bounded by default** — every command has a default iteration count; unlimited is opt-in via `Iterations: unlimited` |
-| 2 | **Read before write** — understand full context before modifying |
-| 3 | **One change per iteration** — atomic changes; if it breaks, you know why |
-| 4 | **Mechanical verification only** — no subjective "looks good"; use metrics |
-| 5 | **Automatic rollback** — failed changes revert instantly |
-| 6 | **Simplicity wins** — equal results + less code = keep |
-| 7 | **Git is memory** — experiments committed with `experiment:` prefix; agent reads `git log` + `git diff` before each iteration |
-| 8 | **When stuck, think harder** — re-read, combine near-misses, try radical changes |
-
----
-
-## Hooks & Safety
-
-Hooks are defense-in-depth guardrails, not a security sandbox. They are registered automatically from the plugin's `hooks/hooks.json` when the plugin is enabled. They are Python 3 scripts (standard library only), so they need Python 3.8 or newer, with `python3` on the PATH of the shell Claude Code uses.
-
-### What's Protected
-
-| Hook | What it does | Event |
-|------|-------------|-------|
-| **scout-block** | Blocks node_modules/, .git/, __pycache__/, etc. from filling your context | PreToolUse |
-| **privacy-block** | Blocks .env, SSH keys, credentials from being read in sessions | PreToolUse |
-| **dangerous-cmd-block** | Blocks force-push, `rm -rf`, `git reset --hard` | PreToolUse |
-| **iteration-context** | Injects recent TSV iteration data after context compaction | UserPromptSubmit |
-| **subagent-context** | Gives subagents awareness of active loop state | SubagentStart |
-| **dev-rules-reminder** | Re-injects plan path and code standards after compaction | UserPromptSubmit |
-| **simplify-gate** | Warns at 400 LOC, blocks at 800 LOC before shipping | UserPromptSubmit |
-| **session-init** | Sets up project context at session start | SessionStart |
-| **stop-notify** | Terminal notification + optional webhook on session end | SessionEnd |
-
-### Configuration
-
-All hooks are **on by default**. Disable individually only for troubleshooting:
-
-```bash
-# Disable a specific hook
-export AR_DISABLE_SCOUT_BLOCK=1
-export AR_DISABLE_PRIVACY_BLOCK=1
-export AR_DISABLE_DANGEROUS_CMD_BLOCK=1
-# ... etc for each hook name
-```
-
-Optional webhook for session completion notifications:
-
-```bash
-export AR_NOTIFY_WEBHOOK=https://hooks.slack.com/services/...
-```
-
-Customize blocked directories with a `.ckignore` file (gitignore syntax) at your project root.
-
-See [guide/hooks.md](guide/hooks.md) for full reference.
-
-Contributor verification (local test suites) lives in [CONTRIBUTING.md](CONTRIBUTING.md#testing).
-
----
-
-## Commands
-
-| Command | What it does | Default Iterations |
-|---------|--------------|--------------------|
-| `/autoresearch` | **Classic:** Core iterate loop: modify → verify → keep/discard · **Orchestrator:** free-form goal → auto-select pipeline → loop until predicate met | 25 / goal-bounded |
-| `/autoresearch:plan` | Convert goal into validated config | one-shot |
-| `/autoresearch:debug` | Hunt bugs via hypothesis iteration | 15 |
-| `/autoresearch:fix` | Crush errors one-by-one to zero | 20 |
-| `/autoresearch:security` | STRIDE + OWASP audit with red-team | 15 |
-| `/autoresearch:scenario` | Generate edge cases across 12 dimensions | 20 |
-| `/autoresearch:predict` | 5 expert personas debate | one-shot |
-| `/autoresearch:learn` | Scout → generate docs → validate → fix | 10 |
-| `/autoresearch:reason` | Adversarial debate with blind judges | 8 |
-| `/autoresearch:probe` | 8 personas interrogate requirements | 15 |
-| `/autoresearch:improve` | Research ICP, discover improvements, generate PRDs | 15 |
-| `/autoresearch:evals` | Analyze iteration results: trends, plateaus | one-shot |
-| `/autoresearch:regression` | Stability gate: baseline vs candidate, verdict STABLE/UNSTABLE | one-shot |
-
-**Universal flags:** `Iterations: N`, `Iterations: unlimited`, `--evals`, `--evals-interval N`, `--chain <targets>`, `--<subcommand>` shorthand.
-
-**All commands use interactive setup when invoked without arguments.** Just type the command — the agent asks for what it needs with smart defaults based on your codebase.
-
-### Quick Decision Guide
-
-| I want to... | Use |
-|--------------|-----|
-| Give a plain-language goal, let it self-orchestrate | `/autoresearch <goal>` (bare, no Metric/Verify) |
-| Improve test coverage / reduce bundle size / any metric | `/autoresearch` |
-| Run bounded iterations | Add `Iterations: N` to any command |
-| Don't know what metric to use | `/autoresearch:plan` |
-| Run a security audit | `/autoresearch:security` |
-| Optimize without breaking existing tests | Add `Guard: npm test` |
-| Hunt all bugs in a codebase | `/autoresearch:debug` |
-| Fix all errors (tests, types, lint) | `/autoresearch:fix` |
-| Debug then auto-fix | `/autoresearch:debug --fix` |
-| Explore edge cases for a feature | `/autoresearch:scenario` |
-| Generate test scenarios | `/autoresearch:scenario --format test-scenarios` |
-| Get expert opinions before starting | `/autoresearch:predict` |
-| Analyze from multiple angles then debug | `/autoresearch:predict --chain debug` |
-| Generate docs for a new codebase | `/autoresearch:learn --mode init` |
-| Update existing docs after changes | `/autoresearch:learn --mode update` |
-| Debate an architecture decision | `/autoresearch:reason --domain software` |
-| Surface hidden constraints before starting | `/autoresearch:probe` |
-| Pre-flight a fuzzy goal then loop | `/autoresearch:probe --chain plan,autoresearch` |
-| Discover what to build next for your ICP | `/autoresearch:improve` |
-| Research competitors and generate PRDs | `/autoresearch:improve --depth deep` |
-| Probe requirements then research improvements | `/autoresearch:probe --improve` |
-| Analyze trends and plateaus across past runs | `/autoresearch:evals` |
-| Check if a run has stalled | `/autoresearch:evals --file *-results.tsv` |
-| Verify a change won't regress before pushing | `/autoresearch:regression` |
-| Gate a PR: predict, fix, re-gate | `/autoresearch:regression --predict --fix` |
-
----
-
-## Quick Start
-
-### Install
-
-Install through Claude Code's plugin manager: the `/plugins` dialog in the VS Code extension, or `/plugin` in the CLI. Add the marketplace, then install the plugin:
+在 Claude Code（例如 VS Code extension）執行 `/plugins`，在 Marketplaces 分頁加入 marketplace，再以 user scope 安裝 `loopkit`：
 
 ```
 /plugin marketplace add YanjenChen/loopkit
 /plugin install loopkit@loopkit
 ```
 
-> **Note:** Start a new Claude Code session after installing. Reference files aren't resolvable in the same session where installation happened — this is a Claude Code platform limitation.
+- **開發 loopkit 本身**：改為加入本機路徑（這個 repo 的根目錄）。plugin 會直接從原資料夾載入，改完 `claude-plugin/` 後執行 `/reload-plugins` 就會生效。
+- **更新**：push 之後執行 `/plugin update`。
 
-**Prerequisite for the hook guardrails:** Python 3.8 or newer, with `python3` on the PATH of the shell Claude Code uses. Nothing checks this at install time. See [Hooks & Safety](#hooks--safety).
+> **注意**：run 的資料存在 plugin 的資料目錄（`~/.claude/plugins/data/loopkit-loopkit/`）。解除安裝 loopkit 會把所有 run 一起刪掉；用 CLI 解除安裝時加 `--keep-data` 才會保留。更新 plugin 不受影響。
 
-**Updating (no reinstall needed):**
-```
-/plugin update loopkit
-```
+## 一次 run 的流程
 
-Run `/reload-plugins` to activate. No need to uninstall or re-clone.
+1. **設定**：在你的 repo 執行 `/loopkit:init <要優化什麼>`，例如 `/loopkit:init 優化hpwl與runtime`。init 會分析 repo、盤問你的描述、產生 loopkit 設定（`.loopkit/config.json`）和評分腳本、試跑、發佈 monitor 讓你確認，最後建立 run 並為 baseline（c000）評分。
+2. **啟動**：用 init 印出的指令，在新的 VS Code 視窗開啟 run 的 agent worktree，用 auto mode 啟動 Claude Code，貼上 init 印出的 prompt 之一：
 
-### Run It
+   ```
+   /goal 重複執行 /loopkit:iter（停止條件：最多 20 輪或 hpwl 低於 1.0e6，由 loopkit 判斷），直到輸出出現 LOOPKIT-STOP。單一輪 REVERTED 或 FAILED 不代表目標不可能達成。
+   /loop /loopkit:iter（停止條件：最多 50 輪，由 loopkit 判斷；輸出出現 LOOPKIT-STOP 時停止 loop）
+   ```
 
-```
-/autoresearch
-Goal: Increase test coverage from 72% to 90%
-Scope: src/**/*.test.ts, src/**/*.ts
-Metric: coverage % (higher is better)
-Verify: npm test -- --coverage | grep "All files"
-Iterations: 25
-```
+   停止條件由 loopkit 判斷；達成時框架印出 `LOOPKIT-STOP`，`/goal` 和 `/loop` 都會停下來。之後想再跑一批，就用不同的 prompt 再下一次。
+3. **同時開發**：你繼續在自己的工作目錄開發。想讓某個 commit 被評估，在你自己的 session 執行 `/loopkit:request-eval <commit>`；它會在下一輪開頭被評分，成為 `hNNN`，預設只觀察。要讓它加入演化，執行 `/loopkit:promote <hNNN>`。
+4. **觀察**：從 monitor 看進度，或執行 `/loopkit:status`。
+5. **取回結果**：`/loopkit:adopt <id>` 在你的 repo 建立一個指向該候選的 branch，由你自行檢視和合併。
 
-Claude reads all files, establishes a baseline, and starts iterating — one change at a time. Keeps improvements, auto-reverts failures, logs everything. Stops after N iterations or when you interrupt.
+要改優化目標或評分方式時，重新執行 `/loopkit:init`，它會建立新的 run；舊 run 的 ledger 和 ref 都會保留。
 
----
+## 一輪 iter
 
-## /autoresearch:plan — Goal to Config
+| 階段 | 內容 |
+|---|---|
+| 開頭（固定） | 完整性檢查 → 登錄並檢查停止條件 → 處理你送來的請求 → 印出 evolve 狀態 → 選 parent（一個，或兩個做合併） |
+| 中段（設定決定） | single：agent 自己分析並選一個改法。multi：多個唯讀 analyst 並行提案，decider 盲評選出一個，選用的 critic 再挑戰一次 |
+| 結尾（固定） | 實作 → precheck（快速編譯、自我修復）→ 評分 → 記錄（一行 ITER）→ 更新 monitor |
 
-The hardest part isn't the loop — it's defining Scope, Metric, and Verify correctly. `/autoresearch:plan` converts your plain-language goal into a validated, ready-to-execute configuration.
-
-```
-/autoresearch:plan
-Goal: Make the API respond faster
-```
-
-Walks through 5 steps: capture goal → define scope → define metric → define direction → validate verify command (dry-run). Every gate is mechanical — scope must resolve to files, metric must output a number, verify must pass a dry-run. Emits a `handoff.json` for chaining.
-
----
-
-## /autoresearch:debug — Autonomous Bug Hunter
-
-Scientific method meets autoresearch loop. Doesn't stop at one bug — iteratively hunts ALL bugs using falsifiable hypotheses, evidence-based investigation, and 7 investigation techniques.
+每一輪結束時會印出一行 ITER，例如：
 
 ```
-/autoresearch:debug
-Scope: src/api/**/*.ts
-Symptom: API returns 500 on POST /users
-Iterations: 15
+ITER 7/20 | c012<-c009 | hpwl 1.0231e6 (-0.80% better) | runtime 41.200s (+1.2% same) | KEPT | front=3
 ```
 
-**How it works:** Gather symptoms → Recon → Hypothesize (specific, testable) → Test (one experiment per iteration) → Classify (confirmed/disproven/inconclusive) → Log → Repeat.
+## 指令
 
-Every finding requires code evidence (file:line + reproduction steps). Every disproven hypothesis is logged — equally valuable.
+在你自己的 session 使用的 slash command：
 
-| Flag | Purpose |
-|------|---------|
-| `--fix` | After hunting, auto-switch to `/autoresearch:fix` |
-| `--scope <glob>` | Limit investigation scope |
-| `--symptom "<text>"` | Pre-fill symptom |
-| `--severity <level>` | Minimum severity to report |
+| 指令 | 作用 |
+|---|---|
+| `/loopkit:init <描述>` | 設定並建立 run |
+| `/loopkit:request-eval <commit>` | 把你的 commit 送去評估 |
+| `/loopkit:promote <hNNN>` | 讓人工候選加入演化 |
+| `/loopkit:adopt <id>` | 在你的 repo 建立指向候選的 branch |
+| `/loopkit:status` | run 的狀態 |
 
----
+`/loopkit:iter` 只在 run session 裡由 `/goal` 或 `/loop` 執行。
 
-## /autoresearch:fix — Autonomous Error Crusher
+框架指令是一支 Python 程式 `loopkit`，負責所有 git 和 ledger 的寫入。常用的有 `loopkit summary`、`loopkit show <id> --log`、`loopkit lineage <id>`、`loopkit diff <a> <b>`、`loopkit status`、`loopkit run list`、`loopkit check`。完整清單見 `loopkit --help`，或 [skill 的說明](claude-plugin/skills/loopkit/SKILL.md)。
 
-Takes a broken state and iteratively repairs it until everything passes. ONE fix per iteration. Atomic, committed, verified, auto-reverted on failure.
+在 Claude Code 裡，`loopkit` 已經在 PATH 上。要在一般終端機使用，先執行一次 `python3 <plugin 路徑>/bin/loopkit shim`，它會在 `~/.local/bin/loopkit` 建立捷徑。
 
-```
-/autoresearch:fix
-Iterations: 20
-```
+## 評分腳本
 
-Auto-detects what's broken (tests, types, lint, build) → Prioritizes (blockers first) → Fixes ONE thing → Commits → Verifies error count decreased → Guard check → Keep/Revert → Repeat. **Stops automatically when error count hits zero.**
+評分腳本由 init 依你的描述產生，run 建立時固定成快照。框架在乾淨的 eval worktree 裡執行它，只讀它寫出的結果 JSON：
 
-| Flag | Purpose |
-|------|---------|
-| `--target <command>` | Explicit verify command |
-| `--guard <command>` | Safety command that must always pass |
-| `--category <type>` | Only fix specific type (test, type, lint, build) |
-| `--from-debug` | Read findings from latest debug session |
-
-**Chain them:** `/autoresearch:debug` → `/autoresearch:fix --from-debug`
-
----
-
-## /autoresearch:security — Autonomous Security Audit
-
-Read-only security audit using STRIDE threat modeling, OWASP Top 10 sweeps, and red-team adversarial analysis with 4 hostile personas.
-
-```
-/autoresearch:security
-Iterations: 15
+```json
+{"schema": 1, "status": "ok",
+ "objectives": {"hpwl": 1.0231e6, "runtime": 41.2},
+ "constraints": {"legal": {"pass": true, "value": 0, "detail": "0 overlaps"}},
+ "extra": {"gpu_mem_mb": 5120}}
 ```
 
-Codebase recon → asset inventory → trust boundaries → STRIDE threat model → attack surface map → autonomous testing loop → structured report. Every finding requires code evidence (file:line + attack scenario).
+build、重複量測、彙整都是腳本的事。完整規格和隔離檢查清單見 [score-contract.md](claude-plugin/skills/loopkit/references/score-contract.md)，設定檔的每個欄位見 [config.md](claude-plugin/skills/loopkit/references/config.md)。
 
-| Flag | Purpose |
-|------|---------|
-| `--diff` | Only audit files changed since last audit |
-| `--fix` | Auto-fix confirmed Critical/High findings |
-| `--fail-on <severity>` | Exit non-zero for CI/CD gating |
+## 安全與評分完整性
 
-**Output:** Creates `security/{date}-{slug}/` with 7 structured report files.
+run session 的 agent 可以執行任意指令，而且環境沒有 Docker，所以 loopkit 的目標是擋下意外和常見的誤用，並偵測竄改，不是保證絕對安全：
 
----
+1. **隔離**：run 在獨立的 agent worktree 進行；評分在另一個 eval worktree，用 run 目錄裡的快照。
+2. **範圍檢查**：只能改設定裡的 scope；`.loopkit/`、`.claude/`、`.gitignore`、`.gitattributes`、`.gitmodules`、submodule 和指到 tree 外的 symlink 一律不行。
+3. **權限規則**：run 的 worktree 有禁止編輯你的 repo、eval worktree、run 資料和 `.git` 的規則。
+4. **hook**：在 run session 中，git 只能讀，寫入由框架負責；會動到受保護位置的指令、無法解析的指令、背景執行和只給你用的指令都會被擋下。hook 只在 run session 中作用，你平常的 session 不受影響。
+5. **竄改偵測**：每一輪開頭和每次評分前，檢查評分資產快照、ledger 的 hash chain、候選的 ref、佇列，以及可能在 checkout 時執行程式碼的 git 設定。有問題就停止 run。
 
-## /autoresearch:scenario — Scenario Explorer
-
-Autonomous scenario exploration engine. Takes a seed scenario and iteratively generates situations across 12 dimensions — happy paths, errors, edge cases, abuse, scale, concurrency, temporal, data variation, permissions, integrations, recovery, and state transitions.
+## 開發
 
 ```
-/autoresearch:scenario
-Scenario: User attempts to checkout with multiple payment methods
-Iterations: 20
+python3 -m unittest discover -s tests -p 'test_loopkit_*.py'   # 單元測試
+bash tests/test-run-e2e.sh                                      # 用玩具 repo 跑完整流程
+bash tests/test-hooks.sh                                        # hooks
 ```
 
-Seed analysis → Decompose into 12 dimensions → Generate ONE situation per iteration → Classify (new/variant/duplicate) → Expand edge cases → Log → Repeat.
+見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-| Flag | Purpose |
-|------|---------|
-| `--domain <type>` | software, product, business, security, marketing |
-| `--depth <level>` | shallow (10), standard (20), deep (50+) |
-| `--format <type>` | use-cases, user-stories, test-scenarios, threat-scenarios |
-| `--focus <area>` | edge-cases, failures, security, scale |
+## 授權與致謝
 
----
+MIT，見 [LICENSE](LICENSE)。
 
-## /autoresearch:predict — Multi-Persona Prediction
-
-Before you debug, fix, or release — get 5 expert perspectives in 2 minutes.
-
-Simulates a team (Architect, Security Analyst, Performance Engineer, Reliability Engineer, Devil's Advocate) who independently analyze your code, debate findings, and reach consensus.
-
-```
-/autoresearch:predict --chain debug
-```
-
-- `--chain debug` — pre-ranked hypotheses before debugging
-- `--chain security` — multi-persona red team analysis
-- `--chain scenario,debug,fix` — full quality pipeline
-
----
-
-## /autoresearch:learn — Autonomous Documentation Engine
-
-Scout codebase → generate docs → validate → fix → repeat. 4 modes: init (create from scratch), update (refresh existing), check (read-only health report), summarize (quick overview).
-
-```
-/autoresearch:learn --mode init --depth deep
-Iterations: 10
-```
-
-Dynamic doc discovery, project-type detection, validation-fix loop, git-diff scoping for updates, selective single-doc update with `--file`. Auto-generates Mermaid architecture diagrams, API reference, testing guide, config guide, and cross-reference links.
-
----
-
-## /autoresearch:reason — Adversarial Refinement
-
-Extends autoresearch to **subjective domains** where no objective metric exists. The blind judge panel is the fitness function.
-
-```
-/autoresearch:reason
-Task: Should we use event sourcing for our order management system?
-Domain: software
-Iterations: 8
-```
-
-**How it works:** Generate-A → Critic attacks → Author-B responds → Synthesizer merges → Blind judge panel (randomized labels) picks winner → Winner becomes new A → Repeat until convergence. Every agent is a cold-start fresh invocation — no history bleed.
-
-| Flag | Purpose |
-|------|---------|
-| `--judges N` | Judge count (3-7, odd preferred) |
-| `--convergence N` | Consecutive wins to converge (default 3) |
-| `--mode <mode>` | convergent (default), creative, debate |
-| `--domain <type>` | software, product, business, security, research, content |
-| `--chain <targets>` | Chain converged output to any autoresearch command |
-
-**Output:** Creates `reason/{date}-{slug}/` with lineage.md, candidates.md, judge-transcripts.md, reason-results.tsv, handoff.json.
-
----
-
-## /autoresearch:probe — Adversarial Requirement Interrogation
-
-Eight adversarial personas interrogate user and codebase together until net-new constraints saturate. Output is the 5 autoresearch primitives (Goal/Scope/Metric/Direction/Verify) plus a `handoff.json` ready to feed any downstream command.
-
-```
-/autoresearch:probe --chain plan,autoresearch
-Topic: Add multi-tenant isolation to the database layer
-```
-
-**The 8 personas:** Skeptic, Edge-Case Hunter, Scope Sentinel, Ambiguity Detective, Contradiction Finder, Prior-Art Investigator, Success-Criteria Auditor, Constraint Excavator.
-
-| Flag | Purpose |
-|------|---------|
-| `--depth <level>` | shallow (5 rounds), standard (15), deep (30) |
-| `--adversarial` | Rotate Skeptic + Contradiction Finder + Edge-Case Hunter to front |
-| `--mode <mode>` | interactive (default) or autonomous |
-| `--chain <targets>` | plan, predict, debug, scenario, reason, fix, learn |
-
-**Output:** Creates `probe/{date}-{slug}/` with probe-spec.md, constraints.tsv, autoresearch-config.yml, handoff.json.
-
----
-
-## /autoresearch:improve — Product Improvement Engine
-
-Research what to build next. Discovers ICP challenges via deep multi-source research, scores and ranks improvements, generates per-feature PRDs with evidence chains.
-
-```
-/autoresearch:improve
-Goal: Improve onboarding conversion
-ICP: B2B SaaS product managers at 50-500 person companies
-```
-
-**How it works:** Resolve product context → Research across 5 categories (ICP challenges, competitor gaps, market trends, UX & experience, revenue & growth) → Saturate → ICP binary gate → Tiered ranking (Must-have / Nice-to-have / Moonshot) → User selects features → Generate PRDs.
-
-| Flag | Purpose |
-|------|---------|
-| `--icp "<text>"` | Ideal customer profile |
-| `--discover` | Force codebase scan even with existing context |
-| `--no-discover` | Skip auto-discover |
-| `--depth <level>` | shallow (5), standard (15), deep (30+) |
-| `--seeds <categories>` | Override default research categories |
-
-**Output:** Creates `improve/{date}-{slug}/` with research-findings.md, improvement-plan.md, per-feature PRDs, summary.md, improve-results.tsv, handoff.json.
-
-**Terminal emitter** — improve is the last link in any autoresearch chain. PRDs are consumed by external tools (`/ck:plan`, `/ck:cook`), not by other autoresearch commands.
-
-**Chain into improve:** `/autoresearch:probe --improve`, `/autoresearch:predict --improve`, `/autoresearch:debug --improve`.
-
----
-
-## /autoresearch:evals — Results Analyzer
-
-Analyzes `*-results.tsv` files from any autoresearch run. Surfaces trends, plateau detection, convergence signals, and iteration efficiency. Backward compatible with v2.0.x TSV format.
-
-```
-/autoresearch:evals
-/autoresearch:evals --file coverage-results.tsv
-```
-
-**Adaptive checkpoints:** floor(max_iterations/3), minimum 1 checkpoint. Reports per-checkpoint delta, stall detection, best iteration, and a recommendation (continue / stop / change strategy).
-
-**Inline evals during a run:**
-```
-/autoresearch
-Goal: Reduce bundle size below 200kb
-Iterations: 30
---evals-interval 10
-```
-
-Prints a checkpoint report every 10 iterations without interrupting the loop.
-
----
-
-## /autoresearch:regression — Stability Gate
-
-Before you push, prove the change didn't break what already worked. Captures baseline behavior from a `git worktree` of the base ref, diffs the candidate across **8 dimensions**, and emits a single **STABLE / UNSTABLE** verdict.
-
-```
-/autoresearch:regression --predict --evals --fix
-```
-
-**Core invariant:** a regression is a **green→red transition only**. Pre-existing failures (red→red), new tests (absent→red), and flaky tests (flake→red) are classified and excluded — never counted as regressions.
-
-**Tiered verdict:**
-- **HARD gate** (any green→red = UNSTABLE): `functional`, `api-contract`, `data-migration`, `integration-e2e`
-- **SCORE** (0–100, noise-tolerant, weighted; UNSTABLE below threshold 95): `flakiness` .30, `performance` .30, `resource` .20, `visual-ui` .20
-
-| Flag | Purpose |
-|------|---------|
-| `--select auto` | Use detected affected-test mapper (jest `--findRelatedTests`, nx affected) else FULL suite — never a silent subset |
-| `--samples N` / `--noise-band %` | Tune the perf statistical gate (default 7 samples/side, Mann–Whitney U) |
-| `--fix` / `--fix-cycles N` | Re-gate after fixing; each cycle must strictly shrink the blocking-set (max 3) |
-| `--predict` | Pre-empt likely regressions before the gate runs |
-| `--reason` | Adversarial root-cause when a regression's cause is ambiguous |
-| `--debug` | Force the bisect Hunter (HARD dims passing 3/3 reproduction) |
-| `--max-runs N` | Ceiling on dims×axes×samples×cells (warn+confirm past 200) |
-
-**Output:** Creates `regression/{date}-{slug}/` with regression-results.tsv, stability-report.md, dimensions/<dim>.md, baseline/, evals-summary.md, handoff.json.
-
-> **data-migration is hard-guarded:** opt-in, and refuses any DB URL that isn't ephemeral/allowlisted (`*test*`, `*ci*`, container). Migrations are forward-only by default.
-
----
-
-## Guard — Prevent Regressions
-
-When optimizing a metric, the loop might break existing behavior. **Guard** is an optional safety net.
-
-```
-/autoresearch
-Goal: Reduce API response time to under 100ms
-Verify: npm run bench:api | grep "p95"
-Guard: npm test
-```
-
-- **Verify** = "Did the metric improve?" (the goal)
-- **Guard** = "Did anything else break?" (the safety net)
-
-If the metric improves but the guard fails, Claude reworks the optimization (up to 2 attempts). Guard/test files are never modified.
-
-> **Credit:** Guard was contributed by [@pronskiy](https://github.com/pronskiy) (JetBrains) in [PR #7](https://github.com/uditgoenka/autoresearch/pull/7).
-
----
-
-## Results Tracking
-
-Every iteration is logged in TSV format:
-
-```tsv
-iteration  commit   metric  delta   status    description
-0          a1b2c3d  85.2    0.0     baseline  initial state
-1          b2c3d4e  87.1    +1.9    keep      add tests for auth edge cases
-2          -        86.5    -0.6    discard   refactor test helpers (broke 2 tests)
-3          c3d4e5f  88.3    +1.2    keep      add error handling tests
-```
-
-Run `/autoresearch:evals` at any time to analyze trends across any TSV file. Adaptive checkpoints fire at floor(max_iterations/3) intervals.
-
----
-
-## Crash Recovery
-
-| Failure | Response |
-|---------|----------|
-| Syntax error | Fix immediately, don't count as iteration |
-| Runtime error | Attempt fix (max 3 tries), then move on |
-| Resource exhaustion | Revert, try smaller variant |
-| Infinite loop / hang | Kill after timeout, revert |
-| External dependency | Skip, log, try different approach |
-
----
-
-## Repository Structure
-
-```
-autoresearch/
-├── README.md
-├── COMPARISON.md                                  ← Karpathy's vs Claude Autoresearch
-├── guide/                                         ← Guides — one per command + advanced patterns
-├── tests/                                         ← Shell test suites (run locally)
-├── .claude-plugin/marketplace.json                ← Plugin marketplace entry (source: ./claude-plugin)
-├── claude-plugin/                                 ← Claude Code plugin — the single source of truth
-│   ├── .claude-plugin/plugin.json                 ← Plugin manifest
-│   ├── skills/autoresearch/
-│   │   ├── SKILL.md                               ← Thin routing table (41 lines)
-│   │   ├── references/                            ← 4 focused reference files
-│   │   │   ├── security-checklist.md              ← STRIDE + OWASP
-│   │   │   ├── predict-personas.md                ← 5 personas + adversarial set
-│   │   │   ├── reason-judge-protocol.md           ← Adversarial refinement loop
-│   │   │   └── orchestrator-routing.md            ← Goal archetypes + routing contract
-│   │   └── scripts/                               ← Bundled runtime helpers
-│   │       ├── orchestrate.sh                     ← Orchestrator routing seam
-│   │       └── score-regression.sh                ← Regression scoring backend
-│   ├── hooks/                                     ← Hook guardrails (hooks.json + Python hooks)
-│   └── commands/
-│       ├── autoresearch.md                        ← Core loop (self-contained, ~100 lines)
-│       └── autoresearch/                          ← 12 subcommand files (self-contained)
-│           ├── plan.md
-│           ├── debug.md
-│           ├── fix.md
-│           ├── security.md
-│           ├── scenario.md
-│           ├── predict.md
-│           ├── learn.md
-│           ├── reason.md
-│           ├── improve.md
-│           ├── probe.md
-│           ├── evals.md
-│           └── regression.md
-└── LICENSE
-```
-
----
-
-## FAQ
-
-**Q: I don't know what metric to use.**
-A: Run `/autoresearch:plan` — it analyzes your codebase, suggests metrics, and dry-runs the verify command before you launch.
-
-**Q: What changed in v2.2.0?**
-A: The root `/autoresearch` command now supports an autonomous orchestrator mode. Type a plain-language goal (e.g., `/autoresearch help me fix the login bug`) instead of `Metric:`/`Verify:` and the orchestrator classifies your goal, derives a verifiable Success predicate, confirms it once, then loops across subcommands until done. Classic metric-loop behavior is unchanged when `Metric:` or `Verify:` are present.
-
-**Q: What changed in v2.1.0?**
-A: Architecture rebuild. The monolithic SKILL.md (813 lines, ~100K tokens) is replaced with a thin routing file + 12 self-contained command files (~5–8K tokens each). 95% token reduction. A new `/autoresearch:evals` command analyzes iteration results. Every looping command now has a bounded default instead of running unlimited.
-
-**Q: How do bounded defaults work?**
-A: Every looping command ships with a sensible default (e.g., `/autoresearch` defaults to 25 iterations). Override inline: `Iterations: 50` for more, `Iterations: unlimited` for the old unbounded behavior.
-
-**Q: How does /autoresearch:evals work?**
-A: Point it at any `*-results.tsv` file from a previous run. It reports trends, plateau detection, and a recommendation. Use `--evals-interval N` during a live run to get checkpoint reports without interrupting the loop.
-
-**Q: Does this work with any project?**
-A: Yes. Any language, framework, or domain. Install through the Claude Code plugin manager (`/plugins` in the VS Code extension, `/plugin` in the CLI).
-
-**Q: How do I stop the loop?**
-A: `Ctrl+C` or add `Iterations: N` to your inline config. Claude commits before verifying, so your last successful state is always in git.
-
-**Q: Can I use this for non-code tasks?**
-A: Absolutely. Sales emails, marketing copy, HR policies, runbooks — anything with a measurable metric. See [Examples by Domain](guide/examples-by-domain.md).
-
-**Q: Does /autoresearch:security modify my code?**
-A: No. Read-only by default. Use `--fix` to opt into auto-remediation of confirmed Critical/High findings.
-
-**Q: What's the difference between /autoresearch:predict and /autoresearch:reason?**
-A: Predict is a one-shot analysis — 5 experts debate your existing code. Reason is an iterative refinement loop — competing candidates are generated, critiqued, synthesized, and blind-judged over multiple rounds until convergence. Use predict for analysis before acting; use reason for decisions where no objective metric exists.
-
-**Q: What is handoff.json?**
-A: A structured file emitted by plan, probe, reason, and other commands that carries Goal/Scope/Metric/Verify config for downstream commands. When you `--chain plan,autoresearch`, the chain reads handoff.json automatically.
-
----
-
-## Contributing
-
-Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Areas of interest: new domain examples, verification script templates, CI/CD integrations, real-world benchmarks. All guides are in [guide/](guide/).
-
----
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=uditgoenka%2Fautoresearch&type=timeline&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=uditgoenka/autoresearch&type=timeline&theme=dark&legend=bottom-right&v=20260319" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=uditgoenka/autoresearch&type=timeline&legend=bottom-right&v=20260319" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=uditgoenka/autoresearch&type=timeline&legend=bottom-right&v=20260319" />
- </picture>
-</a>
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
-## Credits
-
-- **[Andrej Karpathy](https://github.com/karpathy)** — for [autoresearch](https://github.com/karpathy/autoresearch)
-- **[Anthropic](https://anthropic.com)** — for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and the skills system
-
----
-
-<div align="center">
-
-## About the Author
-
-<a href="https://udit.co">
-  <img src="https://avatars.githubusercontent.com/uditgoenka" width="80" style="border-radius: 50%;" alt="Udit Goenka" />
-</a>
-
-**[Udit Goenka](https://udit.co)** — AI Product Expert, Founder & Angel Investor
-
-Self-taught builder who went from a slow internet connection in India to founding multiple companies and helping 700+ startups generate over ~$25m in revenue.
-
-**Building:** [TinyCheque](https://tinycheque.com) (India's first agentic AI venture studio) · [Firstsales.io](https://firstsales.io) (sales automation)
-
-**Investing:** 38 startups backed, 6 exits. Focused on early-stage AI and SaaS.
-
-**Connect:** [udit.co](https://udit.co) · [@iuditg](https://x.com/iuditg) · [@uditgoenka](https://github.com/uditgoenka) · [Newsletter](https://udit.co/blog)
-
-> *"Autonomy scales when you constrain scope, clarify success, mechanize verification, and let agents optimize tactics while humans optimize strategy."*
-
-</div>
+loopkit fork 自 Udit Goenka 的 [uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch)（MIT），其構想來自 [Andrej Karpathy 的 autoresearch](https://github.com/karpathy/autoresearch)。

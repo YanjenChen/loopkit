@@ -1,7 +1,7 @@
 {
   "name": "loopkit",
-  "description": "Autonomous improvement engine. 13 commands: iterate, plan, debug, fix, security, scenario, predict, learn, reason, probe, improve, evals, regression.",
-  "version": "2.2.2",
+  "description": "Evolve a repository's code with /goal or /loop: fixed-format iterations, single-agent or analysts-plus-decider workflows, a tolerance-based Pareto front, human candidates, and a live monitor.",
+  "version": "0.1.0",
   "author": {
     "name": "YanjenChen",
     "url": "https://github.com/YanjenChen"
@@ -10,11 +10,11 @@
   "license": "MIT",
   "homepage": "https://github.com/YanjenChen/loopkit",
   "keywords": [
-    "autonomous",
-    "iteration",
     "optimization",
-    "debugging",
-    "security-audit",
-    "evals"
+    "evolution",
+    "pareto",
+    "goal",
+    "loop",
+    "benchmark"
   ]
 }
