@@ -223,7 +223,7 @@ Use `/autoresearch:evals` after a run to analyze trends, plateaus, and velocity 
 | Tests are failing, types broken, lint is red | `/autoresearch:fix` |
 | Bugs but you don't know where | `/autoresearch:debug` |
 | Pre-release security review | `/autoresearch:security` |
-| Ready to ship | `/autoresearch:ship` |
+| Check a change won't regress before pushing | `/autoresearch:regression` |
 | Explore edge cases before building | `/autoresearch:scenario` |
 | Want expert opinions first | `/autoresearch:predict` |
 
@@ -244,5 +244,5 @@ Use `/autoresearch:evals` after a run to analyze trends, plateaus, and velocity 
 - [/autoresearch:plan](autoresearch-plan.md) — when you need help choosing Scope and Metric
 - [/autoresearch:fix](autoresearch-fix.md) — when errors need fixing before you can optimize
 - [/autoresearch:evals](autoresearch-evals.md) — analyze results TSV after a run
-- [Chains & Combinations](chains-and-combinations.md) — combining with debug, security, ship
+- [Chains & Combinations](chains-and-combinations.md) — combining with debug, security, fix
 - [Advanced Patterns](advanced-patterns.md) — custom verification scripts, MCP, CI/CD

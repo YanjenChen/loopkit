@@ -2,13 +2,13 @@
 
 ## Overview
 
-Autoresearch v2.2.2 is a modular, markdown-driven autonomous iteration framework. The core architectural shift from v2.0.x is the **thin SKILL.md + self-contained command files** pattern: the skill file is a routing table; all protocol is embedded in 14 self-contained command files. Only the invoked command file loads per invocation, reducing token cost by ~95%.
+Autoresearch v2.2.2 is a modular, markdown-driven autonomous iteration framework. The core architectural shift from v2.0.x is the **thin SKILL.md + self-contained command files** pattern: the skill file is a routing table; all protocol is embedded in 13 self-contained command files. Only the invoked command file loads per invocation, reducing token cost by ~95%.
 
 As of v2.2.0, bare `/autoresearch` is overloaded: a `Metric:`/`Verify:` config runs the classic metric loop unchanged, while a free-form natural-language goal dispatches an **autonomous orchestrator** that classifies the goal, derives a success predicate, and loops the right subcommands until it holds. All routing decisions live in one deterministic seam, `scripts/orchestrate.sh` (mirroring the `scripts/score-regression.sh` pattern), bounded by plateau detection and a hard cycle ceiling.
 
-v2.2.1 hardens that seam with four orchestrator-safety additions: `screen-cmd` gains destructive-command coverage (netcat exfiltration, raw block-device writes across SD/eMMC·RAID·device-mapper families, `mkfs`, `find -delete`, `shred`, zero-`truncate`, recursive zero-mode `chmod`, curl/wget-into-interpreter via xargs) — including path-qualified invocations like `/sbin/mkfs.ext4`; the derived Success predicate is **pinned** verbatim into `orchestrator-state.json` and re-screened on resume via the new `screen-state-predicate` subcommand (extraction honors escaped quotes so a poisoned predicate cannot truncate the screen); a new `validate-state` subcommand gates the ledger (required fields + coarse types) before routing; and `next-hop` routes a high-impact accepted change through an independent **verify** hop (`pending_verify`) before declaring `DONE` or shipping. The seam now exposes eight subcommands: `classify`, `next-hop`, `units`, `plateau`, `screen-cmd`, `verdict`, `validate-state`, `screen-state-predicate`.
+v2.2.1 hardens that seam with four orchestrator-safety additions: `screen-cmd` gains destructive-command coverage (netcat exfiltration, raw block-device writes across SD/eMMC·RAID·device-mapper families, `mkfs`, `find -delete`, `shred`, zero-`truncate`, recursive zero-mode `chmod`, curl/wget-into-interpreter via xargs) — including path-qualified invocations like `/sbin/mkfs.ext4`; the derived Success predicate is **pinned** verbatim into `orchestrator-state.json` and re-screened on resume via the new `screen-state-predicate` subcommand (extraction honors escaped quotes so a poisoned predicate cannot truncate the screen); a new `validate-state` subcommand gates the ledger (required fields + coarse types) before routing; and `next-hop` routes a high-impact accepted change through an independent **verify** hop (`pending_verify`) before declaring `DONE`. The seam now exposes eight subcommands: `classify`, `next-hop`, `units`, `plateau`, `screen-cmd`, `verdict`, `validate-state`, `screen-state-predicate`.
 
-Multi-platform: Claude Code, OpenCode, and Codex are all supported via a single `scripts/transform.sh` that produces platform-specific distributions from the canonical `.claude/` source and refreshes bundled runtime helpers inside each generated skill package.
+Claude Code is the only supported platform. The canonical source is `.claude/`; `scripts/transform.sh` syncs it into the checked-in `claude-plugin/` package and copies the root runtime helpers (`scripts/orchestrate.sh`, `scripts/score-regression.sh`) into the skill-local `scripts/` folders of `.claude/skills/autoresearch/` and `claude-plugin/skills/autoresearch/`.
 
 ## Component Diagram
 
@@ -19,11 +19,6 @@ graph TB
         PS[Plugin System]
     end
 
-    subgraph "Other Platforms"
-        OC[OpenCode]
-        CX[Codex]
-    end
-
     subgraph "Transform Layer"
         TX[scripts/transform.sh]
     end
@@ -31,23 +26,20 @@ graph TB
     subgraph "Canonical Source"
         SKILL[.claude/skills/autoresearch/SKILL.md\nthin routing table]
         CMD[.claude/commands/autoresearch.md]
-        CMDS[.claude/commands/autoresearch/*.md\n14 self-contained command files]
+        CMDS[.claude/commands/autoresearch/*.md\n12 self-contained subcommand files]
         REF[.claude/skills/autoresearch/references/\nshared routing and review references]
     end
 
-    subgraph "Platform Distributions"
-        OCD[.opencode/commands/ + .opencode/skills/]
-        CXD[plugins/autoresearch/ + .agents/skills/]
+    subgraph "Plugin Distribution"
+        PLG[claude-plugin/\ncommands + skills + hooks]
     end
 
-    CC --> PS --> SKILL
+    CC --> PS --> PLG
+    CC --> SKILL
     CC --> CMD & CMDS
     SKILL -.routing only.-> CMDS
     CMDS --> REF
-    TX --> OCD
-    TX --> CXD
-    OC --> OCD
-    CX --> CXD
+    TX --> PLG
 ```
 
 ## Data Flow — Core Autoresearch Loop
@@ -103,41 +95,37 @@ flowchart TD
 │       ├── reason.md                      # Adversarial refinement loop
 │       ├── regression.md                  # Baseline/candidate stability gate
 │       ├── scenario.md                    # 12-dimension edge case loop
-│       ├── security.md                    # STRIDE + OWASP loop
-│       └── ship.md                        # 8-phase ship pipeline
+│       └── security.md                    # STRIDE + OWASP loop
 └── skills/autoresearch/
     ├── SKILL.md                           # Routing table only — 41 lines
-    └── references/
-        ├── predict-personas.md            # 5 default expert personas
-        ├── reason-judge-protocol.md       # Blind judge scoring protocol
-        ├── security-checklist.md          # STRIDE + OWASP checklist
-        └── orchestrator-routing.md        # Goal archetypes and routing contract
-├── hooks/autoresearch/                    # Claude-only hook system
+    ├── references/
+    │   ├── predict-personas.md            # 5 default expert personas
+    │   ├── reason-judge-protocol.md       # Blind judge scoring protocol
+    │   ├── security-checklist.md          # STRIDE + OWASP checklist
+    │   └── orchestrator-routing.md        # Goal archetypes and routing contract
+    └── scripts/                           # Copies of orchestrate.sh + score-regression.sh (synced by transform.sh)
+├── hooks/autoresearch/                    # Hook system
 │   ├── hooks.json                         # Auto-registration
 │   ├── node-hook-runner.sh                # Shell wrapper
 │   ├── .ckignore                          # Baseline blocked patterns
 │   ├── lib/                               # Shared modules
 │   └── [9 hook .cjs files]
 
-.opencode/                                 # OpenCode distribution (underscore naming)
-plugins/autoresearch/                      # Codex distribution
-.agents/skills/autoresearch/              # Codex agents distribution
 scripts/
-├── transform.sh                          # Single multi-platform transform script
+├── transform.sh                          # Syncs .claude/ into claude-plugin/ + skill-local helpers
 ├── orchestrate.sh                        # Orchestrator routing seam
 ├── score-regression.sh                   # Regression scoring backend
 └── install.sh                            # Guided installer
 
 claude-plugin/
 ├── .claude-plugin/plugin.json            # Claude Code metadata — v2.2.2
-└── hooks/                                # Claude-only hook system
-plugins/autoresearch/
-└── .codex-plugin/plugin.json             # Codex metadata — v2.2.2-codex.0
+└── hooks/                                # Hook system (plugin install)
+.claude-plugin/marketplace.json           # Plugin marketplace entry
 ```
 
 ## Hook System Architecture
 
-The Claude Code distribution includes defense-in-depth hook guardrails via `hooks/hooks.json`. OpenCode and Codex support the core skill/runtime/install surface without claiming hook parity.
+Autoresearch includes defense-in-depth hook guardrails. Plugin installs register them via `hooks/hooks.json`; `scripts/install.sh` merges the same registrations into the target `settings.json`.
 
 ### Hook Lifecycle
 
@@ -196,7 +184,7 @@ claude-plugin/
 | Self-contained command files | Each file embeds full protocol — no reference file loading unless needed |
 | Focused shared references | Only routing, personas, judge protocol, and security material shared across command boundaries warrants a reference |
 | No autoresearch-command-spec.json | JSON spec removed; command contracts live in individual command files |
-| scripts/transform.sh replaces sync-opencode.sh + sync-codex.sh | Single script generates all platform distributions |
+| `.claude/` as the single canonical source | `scripts/transform.sh` regenerates `claude-plugin/` and the skill-local runtime helpers from it; generated copies are never edited by hand |
 | TSV with `# metric_direction` comment | Enables evals command to auto-detect direction without user prompt |
 | 8 TSV status values | baseline, keep, discard, crash, no-op, hook-blocked, metric-error, keep (reworked) |
 | handoff.json for chain integration | Structured handoff between subcommands; evals reads `*-results.tsv` directly |
@@ -208,8 +196,6 @@ claude-plugin/
 
 - **Claude Code Plugin System** — commands in `.claude/commands/`, skill in `.claude/skills/`
 - **Claude Code Hook System** — 9 hooks auto-registered via `hooks/hooks.json` in plugin
-- **OpenCode** — `.opencode/commands/` + `.opencode/skills/` (underscore naming convention)
-- **Codex** — `plugins/autoresearch/` + `.agents/skills/autoresearch/`
 - **Git** — memory, rollback, staleness detection, changelog generation
 - **Shell** — verify and guard commands are user-defined shell expressions
 - **MCP servers** — any MCP server configured in the host environment is available during loops

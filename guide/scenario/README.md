@@ -31,7 +31,7 @@ Each guide is a self-contained example you can adapt to your own project:
 1. **Read the scenario** — understand what's being explored and why
 2. **Copy the command** — adjust scope and iterations for your codebase
 3. **Review the example situations** — see what autoresearch:scenario surfaces
-4. **Follow the chain** — each guide suggests next steps (debug, fix, security, ship, learn)
+4. **Follow the chain** — each guide suggests next steps (debug, fix, security, learn)
 
 ## Quick Picks
 

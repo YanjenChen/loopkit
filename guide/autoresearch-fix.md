@@ -198,18 +198,6 @@ Iterations: 20
 
 /autoresearch:security --diff
 Iterations: 10
-
-/autoresearch:ship --type code-release
-```
-
-### fix → ship
-
-```
-/autoresearch:fix
-Guard: npm test
-Iterations: 30
-
-/autoresearch:ship --type code-pr --auto
 ```
 
 ---
@@ -227,5 +215,4 @@ Iterations: 30
 ## Related Guides
 
 - [/autoresearch:debug](autoresearch-debug.md) — find bugs before fixing
-- [/autoresearch:ship](autoresearch-ship.md) — ship after fixing
 - [/autoresearch:evals](autoresearch-evals.md) — analyze fix-results.tsv

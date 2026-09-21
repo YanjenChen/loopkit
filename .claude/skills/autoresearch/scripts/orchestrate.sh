@@ -6,13 +6,13 @@
 #   units      <results.json>  → Units-remaining scalar (lower_is_better)
 #   plateau    <history.txt>   → Exit 0 if last N computed values are flat-or-worse
 #   screen-cmd <shell-string>  → "ok" exit 0 | "refuse" exit 1 safety gate
-#   verdict    <state.json>    → CONVERGED|PLATEAU|CEILING|BLOCKED + ship-gate
+#   verdict    <state.json>    → CONVERGED|PLATEAU|CEILING|BLOCKED
 #
 # All subcommands are pure and CI-usable via exit codes.
 set -uo pipefail
 
 # ---------------------------------------------------------------------------
-# classify: map a goal string to one of the 9 Goal archetype labels.
+# classify: map a goal string to one of the 8 Goal archetype labels.
 # Priority order matters: higher-stakes archetypes checked first so that
 # "fix and add the broken feature" → fix-broken, not build-feature.
 # ---------------------------------------------------------------------------
@@ -29,11 +29,6 @@ classify() {
   # Broken/bugfix
   if printf '%s' "$g" | grep -qE '(fix|bug|broken)'; then
     echo "fix-broken"; return 0
-  fi
-
-  # Ship/release/deploy
-  if printf '%s' "$g" | grep -qE '(ship|release|deploy)'; then
-    echo "ship-ready"; return 0
   fi
 
   # Product direction — requires a "what …" question so bare "next"/"build" in a
@@ -68,7 +63,7 @@ classify() {
 
 # ---------------------------------------------------------------------------
 # next-hop: cheap router over fields in a state JSON file.
-# Decision order: errors → regression → untested gaps → ship/DONE.
+# Decision order: errors → regression → untested gaps → verify → DONE.
 # ---------------------------------------------------------------------------
 next-hop() {
   local state_file="${1:?usage: next-hop <state.json>}"
@@ -77,17 +72,15 @@ next-hop() {
   fi
 
   # Parse with sed/grep — no jq dependency (score-regression.sh doesn't use jq)
-  local errors regression gaps archetype
+  local errors regression gaps
   errors=$(grep -o '"errors_remaining"[[:space:]]*:[[:space:]]*[0-9]*' "$state_file" \
              | grep -o '[0-9]*$')
   regression=$(grep -o '"regression_verdict"[[:space:]]*:[[:space:]]*"[^"]*"' "$state_file" \
                  | grep -o '"[^"]*"$' | tr -d '"')
   gaps=$(grep -o '"untested_gaps"[[:space:]]*:[[:space:]]*[0-9]*' "$state_file" \
            | grep -o '[0-9]*$')
-  archetype=$(grep -o '"archetype"[[:space:]]*:[[:space:]]*"[^"]*"' "$state_file" \
-                | grep -o '"[^"]*"$' | tr -d '"')
 
-  # Optional: pending_verify gates an independent acceptance check before DONE/ship.
+  # Optional: pending_verify gates an independent acceptance check before DONE.
   # Absent (or false) → routing is identical to prior behavior.
   local pending
   pending=$(grep -o '"pending_verify"[[:space:]]*:[[:space:]]*[a-z]*' "$state_file" \
@@ -114,11 +107,6 @@ next-hop() {
   # acceptance check (separate from the signal used to choose it) → verify first.
   if [[ "$pending" == "true" ]]; then
     echo "verify"; return 0
-  fi
-
-  # All clear: ship if archetype has ship in the pipeline, else DONE
-  if [[ "$archetype" == "ship-ready" ]]; then
-    echo "ship"; return 0
   fi
 
   echo "DONE"
@@ -345,13 +333,13 @@ screen-cmd() {
 
 # ---------------------------------------------------------------------------
 # verdict: synthesize a convergence verdict from state JSON.
-# Reads: units, plateau, ceiling fields. Prints verdict + ship-gate line.
+# Reads: units, plateau, ceiling fields. Prints the verdict.
 # Exit 0 = CONVERGED; exit 1 = not converged; exit 2 = error.
 # ---------------------------------------------------------------------------
 verdict() {
   local state_file="${1:?usage: verdict <state.json>}"
   if [[ ! -f "$state_file" ]]; then
-    echo "BLOCKED"; echo "ship=no"; return 2
+    echo "BLOCKED"; return 2
   fi
 
   local units_val plateau_val ceiling_val
@@ -363,24 +351,24 @@ verdict() {
                   | grep -o '[a-z]*$')
 
   if [[ -z "$units_val" ]]; then
-    echo "BLOCKED"; echo "ship=no"; return 2
+    echo "BLOCKED"; return 2
   fi
 
   if [[ "$plateau_val" == "true" ]]; then
-    echo "PLATEAU"; echo "ship=no"; return 1
+    echo "PLATEAU"; return 1
   fi
 
   if [[ "$ceiling_val" == "true" ]]; then
-    echo "CEILING"; echo "ship=no"; return 1
+    echo "CEILING"; return 1
   fi
 
   # units==0 with no plateau/ceiling → converged
   if awk -v u="$units_val" 'BEGIN { exit (u == 0 ? 0 : 1) }'; then
-    echo "CONVERGED"; echo "ship=yes"; return 0
+    echo "CONVERGED"; return 0
   fi
 
   # units > 0, no plateau/ceiling signal yet → still running
-  echo "BLOCKED"; echo "ship=no"; return 1
+  echo "BLOCKED"; return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -398,7 +386,7 @@ validate-state() {
   if ! node -e '
     const fs = require("fs");
     const state = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-    const strings = ["goal", "archetype", "predicate", "terminal_choice"];
+    const strings = ["goal", "archetype", "predicate"];
     if (!strings.every((key) => typeof state[key] === "string" && state[key].length > 0)) process.exit(1);
     if (!Number.isInteger(state.cycle) || state.cycle < 0) process.exit(1);
     if (!Array.isArray(state.units_remaining) || !Array.isArray(state.pipeline_log)) process.exit(1);

@@ -17,18 +17,16 @@ The real power of autoresearch comes from chaining commands. Each command's outp
 | `predict → security` | Pre-deployment security review |
 | `scenario → debug → fix` | Feature works but needs edge case coverage |
 | `security → fix → security` | Harden, fix, verify fixes |
-| `loop → ship` | Optimization complete, time to deploy |
-| `debug → fix → ship` | Production issue: find, fix, deploy |
-| `plan → loop → security → ship` | Full feature lifecycle |
-| `predict → scenario,debug,fix,ship` | Full quality pipeline |
+| `plan → loop → security` | Full feature lifecycle |
+| `predict → scenario,debug,fix` | Full quality pipeline |
 | `learn → security` | Document first, then audit |
 | `reason → predict` | Converge on design, stress-test with experts |
 | `reason → plan,fix` | Debate approach, then plan and implement |
 | `probe → scenario,debug,fix` | Surface constraints, then full quality pipeline |
 | `probe → improve` | Surface constraints, then research improvements + PRDs |
 | `predict → improve` | Expert analysis, then product improvement research |
-| `loop → evals → ship` | Optimize, analyze results, then ship |
-| `predict → regression → fix → ship` | Pre-empt risks, gate against regressions, fix, then ship |
+| `loop → evals` | Optimize, then analyze results |
+| `predict → regression → fix` | Pre-empt risks, gate against regressions, then fix |
 
 ---
 
@@ -56,7 +54,7 @@ Downstream commands read this file to initialize — never reconstructing contex
 
 ```
 /autoresearch:predict --chain debug
-/autoresearch:predict --chain scenario,debug,fix,ship
+/autoresearch:predict --chain scenario,debug,fix
 /autoresearch:reason --chain predict,scenario
 /autoresearch:probe --chain plan
 ```
@@ -152,7 +150,7 @@ Iterations: 20
 
 ---
 
-### security → fix → re-audit → ship
+### security → fix → re-audit
 
 **When to use:** Pre-release security hardening.
 
@@ -166,8 +164,6 @@ Iterations: 20
 
 /autoresearch:security --diff
 Iterations: 10
-
-/autoresearch:ship --type code-release
 ```
 
 **Shortcut:**
@@ -179,9 +175,9 @@ Iterations: 25
 
 ---
 
-### loop → evals → ship
+### loop → evals
 
-**When to use:** Optimize a metric, analyze results, then ship.
+**When to use:** Optimize a metric, then analyze the results.
 
 ```
 /autoresearch
@@ -190,18 +186,16 @@ Goal: Reduce bundle size below 200KB
 Verify: npm run build 2>&1 | grep "First Load JS"
 Guard: npm test
 --evals
-
-/autoresearch:ship --type code-pr --auto
 ```
 
 ---
 
-### predict → scenario,debug,fix,ship
+### predict → scenario,debug,fix
 
 **When to use:** New feature launch, major release, zero context loss.
 
 ```
-/autoresearch:predict --chain scenario,debug,security,fix,ship
+/autoresearch:predict --chain scenario,debug,security,fix
 Scope: src/**
 Goal: Full quality pipeline for v2.0 release
 ```
@@ -212,7 +206,6 @@ What happens:
 3. **Debug** — hunt bugs in identified risk areas
 4. **Security** — audit attack vectors from adversarial analysis
 5. **Fix** — root-cause-first cascade-aware repairs
-6. **Ship** — deploy with full confidence
 
 ---
 
@@ -284,10 +277,6 @@ predict identifies risk areas and opportunities → improve uses predictions to 
 /autoresearch:learn --mode check
 # If report says "Stale":
 /autoresearch:learn --mode update
-
-# Document, then ship docs PR
-/autoresearch:learn --mode update
-/autoresearch:ship --type code-pr
 ```
 
 ---
@@ -320,7 +309,6 @@ fix      →  repaired code, guard-verified
 loop     →  metric improvements, committed changes, results TSV
 evals    →  trend analysis, plateau detection, recommendation
 regression → stability verdict (STABLE/UNSTABLE), per-dim score math, handoff.json
-ship     →  PR / release / deployment artifact
 ```
 
 **Design rule:** each stage's output sharpens the next stage's input. Vague debug findings mean security won't have enough context. Generic scenarios miss domain-specific risks.
@@ -334,13 +322,12 @@ Context flows forward automatically — you never summarize one stage and paste 
 - `debug` writes findings to `debug-results.tsv` — `fix --from-debug` reads it
 - `predict` writes analysis to `codebase-analysis.md` — downstream stages read it
 - `security` writes audit to `security/` — `security --diff` diffs against it
-- `ship` reads the full git history to understand what changed and why
 - Every `--chain` command writes `handoff.json` — the universal bridge
 
 ---
 
 ## Related Guides
 
-- [getting-started.md](getting-started.md) — platform syntax and installation
+- [getting-started.md](getting-started.md) — installation and core concepts
 - [advanced-patterns.md](advanced-patterns.md) — CI/CD, MCP, evals in pipelines
 - [examples-by-domain.md](examples-by-domain.md) — domain-specific chain examples

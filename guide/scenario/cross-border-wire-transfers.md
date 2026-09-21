@@ -193,7 +193,7 @@ Iterations: 20
 
 ### predict → scenario (full pipeline)
 ```bash
-/autoresearch:predict --adversarial --chain scenario,security,fix,ship
+/autoresearch:predict --adversarial --chain scenario,security,fix
 Scope: src/transfers/**
 Goal: Ensure wire transfer system is compliant, fraud-resistant, and operationally resilient
 ```

@@ -2,7 +2,7 @@
 
 **By [Udit Goenka](https://udit.co)**
 
-Autoresearch turns [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenCode](https://opencode.ai), or [OpenAI Codex](https://developers.openai.com/codex) into an autonomous improvement engine. Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch):
+Autoresearch turns [Claude Code](https://docs.anthropic.com/en/docs/claude-code) into an autonomous improvement engine. Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch):
 
 **Set a goal. Define a metric. Let Claude loop until it's done.**
 
@@ -13,14 +13,6 @@ Works on anything with a measurable outcome — code coverage, bundle size, API 
 ---
 
 ## Installation
-
-### Claude Code (Recommended)
-
-```bash
-npx skills add uditgoenka/autoresearch
-```
-
-Start a new Claude Code session after installation so every command and reference resolves from the installed package.
 
 ### Manual — Project-Level
 
@@ -38,48 +30,41 @@ cp -r autoresearch/.claude/skills/autoresearch ~/.claude/skills/autoresearch
 cp -r autoresearch/.claude/commands/autoresearch ~/.claude/commands/autoresearch
 ```
 
-### OpenCode
+### Plugin
+
+```
+/plugin marketplace add uditgoenka/autoresearch
+/plugin install autoresearch@autoresearch
+```
+
+### Guided Installer
 
 ```bash
 git clone https://github.com/uditgoenka/autoresearch.git
 cd autoresearch
-./scripts/install.sh --opencode --global
+./scripts/install.sh --global   # or --local for the current project only
 ```
 
-> **OpenCode commands use underscores:** `/autoresearch_debug`, `/autoresearch_fix`, etc.
-
-### Codex
-
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-cd autoresearch
-./scripts/install.sh --codex --global
-```
-
-> **Codex uses `$` mention syntax:** `$autoresearch`, `$autoresearch debug`, `$autoresearch fix`, etc.
+The plugin and the guided installer also register the hook guardrails; the manual copies above do not.
 
 ### Verify Installation
 
-- **Claude Code:** Start a new session, invoke `/autoresearch`, and confirm the guided install registered the hook surface.
-- **OpenCode:** Invoke `/autoresearch`; underscore subcommands such as `/autoresearch_debug` load from the installed package.
-- **Codex:** Invoke `$autoresearch` or run `/skills`; subcommands such as `$autoresearch debug` load from the installed package.
+Start a new Claude Code session, invoke `/autoresearch`, and confirm the plugin or guided install registered the hooks.
 
 Each installed skill contains `scripts/orchestrate.sh` and
-`scripts/score-regression.sh`. The release gate proves both helpers execute from
-a disposable configuration root outside the checkout. Supported capabilities
-run on macOS, Linux, and native Windows with Git Bash. Hook guardrails are a
-Claude Code-only integration.
+`scripts/score-regression.sh`, so both helpers run without a source checkout.
+Supported capabilities run on macOS, Linux, and native Windows with Git Bash.
 
 ---
 
-## The 14 Commands
+## The 13 Commands
 
 The root `/autoresearch` command has two modes:
 
 - **Classic loop** — supply `Metric:` / `Verify:` inline and it iterates against that metric (25 iterations by default). This is the original behavior, unchanged.
 - **Autonomous orchestrator** — type a plain-language goal instead (e.g., `/autoresearch help me fix the login bug`) and the system classifies your goal, derives a Success predicate, confirms it once, then loops across subcommands until done. No manual chaining required. See [/autoresearch — Orchestrator](autoresearch-orchestrator.md) for the full guide.
 
-The 13 subcommands below are unchanged. The orchestrator is a mode of the root command, not an additional subcommand.
+The 12 subcommands below are unchanged. The orchestrator is a mode of the root command, not an additional subcommand.
 
 | Command | Does | Default Iterations |
 |---------|------|--------------------|
@@ -88,7 +73,6 @@ The 13 subcommands below are unchanged. The orchestrator is a mode of the root c
 | `/autoresearch:debug` | Hunt bugs scientifically | 15 |
 | `/autoresearch:fix` | Crush errors to zero | 20 |
 | `/autoresearch:security` | STRIDE + OWASP audit | 15 |
-| `/autoresearch:ship` | 8-phase shipping | linear |
 | `/autoresearch:scenario` | Edge cases × 12 dimensions | 20 |
 | `/autoresearch:predict` | 5 expert personas debate | one-shot |
 | `/autoresearch:learn` | Scout → generate → validate docs | 10 |
@@ -96,7 +80,7 @@ The 13 subcommands below are unchanged. The orchestrator is a mode of the root c
 | `/autoresearch:probe` | 8 personas interrogate requirements | 15 |
 | `/autoresearch:improve` | Research ICP, discover improvements, PRDs | 15 |
 | `/autoresearch:evals` | Analyze results TSV | one-shot |
-| `/autoresearch:regression` | Stability gate — baseline diff, ship/no-ship | gate |
+| `/autoresearch:regression` | Stability gate — baseline diff, STABLE/UNSTABLE | gate |
 
 ---
 
@@ -187,7 +171,7 @@ Commands pass context forward via `handoff.json`. No copy-pasting between stages
 
 ```
 /autoresearch:probe --chain plan
-/autoresearch:predict --chain scenario,debug,fix,ship
+/autoresearch:predict --chain scenario,debug,fix
 /autoresearch:reason --chain predict,fix
 ```
 
@@ -214,16 +198,6 @@ iteration  commit   metric  delta   guard  status    description
 2          -        86.5    -0.6    -      discard   refactor helpers
 3          c3d4e5f  88.3    +1.2    pass   keep      add error handling tests
 ```
-
----
-
-## Platform Syntax Reference
-
-| Platform | Subcommand syntax | Example |
-|----------|-------------------|---------|
-| Claude Code | `/autoresearch:debug` | `/autoresearch:fix --category type` |
-| OpenCode | `/autoresearch_debug` | `/autoresearch_fix --category type` |
-| Codex | `$autoresearch debug` | `$autoresearch fix --category type` |
 
 ---
 

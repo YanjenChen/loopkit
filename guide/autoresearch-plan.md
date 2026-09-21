@@ -176,15 +176,6 @@ Verify: npm run bench:api | grep "p95"
 Guard: npm test
 ```
 
-### plan → loop → ship
-
-```
-/autoresearch:plan --chain autoresearch
-Goal: Reduce bundle size below 200KB
-# After loop completes:
-/autoresearch:ship --type code-pr --auto
-```
-
 ---
 
 ## When to Use plan vs. Going Direct

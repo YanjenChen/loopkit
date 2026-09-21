@@ -1,5 +1,5 @@
 {
-  "archetype": "ship-ready",
+  "archetype": "optimize-metric",
   "errors_remaining": 0,
   "regression_verdict": "STABLE",
   "untested_gaps": 0,

@@ -4,7 +4,6 @@
 
 | Archetype | Trigger Keywords | Mode | Preset Pipeline |
 |---|---|---|---|
-| `ship-ready` | ship, release, deploy, publish, production-ready, merge | loop | probe, debug, fix, regression, ship |
 | `optimize-metric` | improve, optimize, increase, reduce, faster, smaller, coverage, score | loop | plan, (classic loop), evals |
 | `fix-broken` | fix, broken, failing, error, crash, bug, can't run, tests fail | loop | debug, fix, regression |
 | `harden` | security, vulnerability, audit, OWASP, CVE, harden, lock down | loop | security, fix, security |
@@ -14,7 +13,7 @@
 | `what-to-build` | what should I build, ideas, improvements, PRD, roadmap | dispatch | improve |
 | `decide-design` | which approach, compare options, design decision, architecture choice | dispatch | reason |
 
-Keyword matching is fuzzy — partial matches and synonyms qualify. When a goal matches multiple archetypes, prefer the more specific one (fix-broken over explore; ship-ready over fix-broken if "ship" is explicit). When ambiguous, show the top two candidates in the upfront confirm and let the user choose.
+Keyword matching is fuzzy — partial matches and synonyms qualify. When a goal matches multiple archetypes, prefer the more specific one (fix-broken over explore). When ambiguous, show the top two candidates in the upfront confirm and let the user choose.
 
 ## Router Decision Table
 
@@ -42,14 +41,14 @@ check runs on a **held-out** set (a fresh scenario set or holdout assertions), s
 from the `units` signal used to choose the change. When a high-impact change is accepted
 on the working signal, the orchestrator sets `pending_verify` in `orchestrator-state.json`;
 `next-hop` then routes to a **verify** hop (dispatched to `reason` or `predict` as an
-independent adversarial check) before declaring `DONE` or shipping. The verify hop is
-advisory input to convergence — it never auto-approves ship, which stays human-gated.
+independent adversarial check) before declaring `DONE`. The verify hop is
+advisory input to convergence.
 
 ## Two-Mode Split
 
-**Orchestration loop** — used when the goal has an external, mechanical Success predicate: a shell command that returns a value the orchestrator can compare across cycles. Progress is objective (Units remaining falls), plateau is well-defined, and the loop terminates on convergence or a safety backstop. Archetypes: ship-ready, optimize-metric, fix-broken, harden, build-feature, explore.
+**Orchestration loop** — used when the goal has an external, mechanical Success predicate: a shell command that returns a value the orchestrator can compare across cycles. Progress is objective (Units remaining falls), plateau is well-defined, and the loop terminates on convergence or a safety backstop. Archetypes: optimize-metric, fix-broken, harden, build-feature, explore.
 
-**Single-pass dispatch** — used when no mechanical predicate exists. The goal is subjective or the subcommand is internally-converging (reason runs its own adversarial loop) or a one-shot terminal emitter (learn, improve produce a document and stop). The orchestrator routes once, the subcommand self-terminates, and the orchestrator reports the result. No Units remaining, no Plateau counter, no ship gate. Archetypes: document, what-to-build, decide-design.
+**Single-pass dispatch** — used when no mechanical predicate exists. The goal is subjective or the subcommand is internally-converging (reason runs its own adversarial loop) or a one-shot terminal emitter (learn, improve produce a document and stop). The orchestrator routes once, the subcommand self-terminates, and the orchestrator reports the result. No Units remaining, no Plateau counter. Archetypes: document, what-to-build, decide-design.
 
 The criterion is: "Can the orchestrator independently verify done without re-running the subcommand?" If yes → loop. If no → dispatch.
 
@@ -61,7 +60,6 @@ The `build-feature` archetype has no pre-existing metric, so progress is reframe
 
 | Archetype | Step 1 | Step 2 | Step 3 | Step 4 | Step 5 |
 |---|---|---|---|---|---|
-| ship-ready | probe | debug | fix | regression | ship |
 | optimize-metric | plan | (classic loop) | holdout-verify | evals | — |
 | fix-broken | debug | fix | regression | — | — |
 | harden | security | fix | security | — | — |
@@ -79,11 +77,11 @@ Terms used consistently across this file, SKILL.md, and orchestrator-state.json.
 
 | Term | Short meaning |
 |---|---|
-| Goal archetype | Classification of the user's natural-language goal into one of the 9 categories above |
+| Goal archetype | Classification of the user's natural-language goal into one of the 8 categories above |
 | Success predicate | Exact shell command + expected output that defines "done" for Orchestration loop goals |
 | Units remaining | Scalar measure of open gaps (failing tests, errors, metric delta); lower-is-better; computed by `scripts/orchestrate.sh units` |
 | Plateau | Units remaining flat or worse for N consecutive computed cycles (default 5); oscillation that nets zero also qualifies |
 | Orchestration loop | The cycle-bounded assess→route→run→record loop used for predicate-bearing archetypes |
-| Single-pass dispatch | One-shot routing to a self-terminating subcommand; no loop, Plateau, ceiling, or ship gate |
-| Independent verify hop | A `verify` routing step (reason/predict) that checks an accepted high-impact change against a fresh signal before DONE/ship; gated by `pending_verify` |
+| Single-pass dispatch | One-shot routing to a self-terminating subcommand; no loop, Plateau, or ceiling |
+| Independent verify hop | A `verify` routing step (reason/predict) that checks an accepted high-impact change against a fresh signal before DONE; gated by `pending_verify` |
 | Holdout-verify | Acceptance check run on a held-out set, separate from the `units` signal used to choose the change, to prevent overfitting the metric |

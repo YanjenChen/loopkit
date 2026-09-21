@@ -78,15 +78,13 @@ Verify: npx lighthouse http://localhost:3000 --output=json --quiet | jq '.catego
 Guard: npx playwright test
 ```
 
-### Debug → fix → ship (incident pipeline)
+### Debug → fix (incident pipeline)
 
 ```
 /autoresearch:debug --fix --severity high
 Scope: src/**/*.ts
 Symptom: Payment confirmations silently failing
 Iterations: 20
-
-/autoresearch:ship --type code-pr --auto
 ```
 
 ### Security audit + auto-fix
@@ -239,13 +237,6 @@ Metric: objections covered (higher is better)
 Verify: node scripts/score-objections.js
 ```
 
-### Ship a sales proposal
-
-```
-/autoresearch:ship --type sales
-Target: proposals/enterprise-q1.md
-```
-
 ### Sales edge case scenarios
 
 ```
@@ -291,13 +282,6 @@ Metric: posts meeting criteria (higher is better)
 Verify: node scripts/meta-description-audit.js
 ```
 
-### Ship blog content
-
-```
-/autoresearch:ship --type content
-Target: content/blog/my-new-post.md
-```
-
 ---
 
 ## Marketing & Growth
@@ -333,13 +317,6 @@ Goal: Generate 50 ad headline variants (max 30 chars) with power words + CTA
 Scope: content/ads/google-search/*.md
 Metric: headlines meeting criteria (higher is better)
 Verify: node scripts/google-ads-validator.js --type headlines
-```
-
-### Ship email campaign
-
-```
-/autoresearch:ship --type marketing-email
-Target: content/emails/product-launch-campaign.html
 ```
 
 ---
@@ -411,12 +388,6 @@ Focus: exposed secrets, container privileges, network policies
 Iterations: 12
 ```
 
-### Ship a deployment
-
-```
-/autoresearch:ship --type deployment --monitor 10
-```
-
 ### Nightly optimization (GitHub Actions)
 
 ```yaml
@@ -439,8 +410,6 @@ jobs:
           Verify: npm test -- --coverage | grep 'All files'
           Guard: npm run build
           --evals"
-      - name: Create PR with improvements
-        run: claude -p "/autoresearch:ship --type code-pr --auto"
 ```
 
 ---

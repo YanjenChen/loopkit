@@ -14,7 +14,7 @@
 
 In March 2026, **[Andrej Karpathy](https://github.com/karpathy)** released [autoresearch](https://github.com/karpathy/autoresearch) — a 630-line Python script that let AI agents autonomously optimize a GPT language model overnight. In 2 days, a single agent ran **700 experiments**, discovered **20 optimizations**, and achieved an **11% speedup** on already-optimized code. The repo hit 26,000 GitHub stars in under a week.
 
-**[Claude Autoresearch](https://github.com/uditgoenka/autoresearch)** by **[Udit Goenka](https://udit.co)** takes Karpathy's core principles — constraint, mechanical metric, autonomous iteration — and generalizes them into a **Claude Code skill system** with 14 commands that work on **any domain**: code, content, marketing, sales, security, DevOps, HR, or anything with a measurable number.
+**[Claude Autoresearch](https://github.com/uditgoenka/autoresearch)** by **[Udit Goenka](https://udit.co)** takes Karpathy's core principles — constraint, mechanical metric, autonomous iteration — and generalizes them into a **Claude Code skill system** with 13 commands that work on **any domain**: code, content, marketing, sales, security, DevOps, HR, or anything with a measurable number.
 
 The philosophy is the same. The scope is radically different.
 
@@ -28,12 +28,12 @@ The philosophy is the same. The scope is radically different.
 | **Created by** | Andrej Karpathy (ex-Tesla AI, OpenAI) | Udit Goenka (AI Product Expert, Founder) |
 | **Released** | March 2026 | March 2026 |
 | **Language** | Python (PyTorch) | Markdown (Claude Code skill system) |
-| **LOC** | ~630 (train.py) | ~1,750 across 14 self-contained command files + routing table |
+| **LOC** | ~630 (train.py) | ~1,500 across 13 self-contained command files + routing table |
 | **Runtime** | Python + NVIDIA GPU + CUDA | Claude Code (any OS, any project, any language) |
 | **Domain** | ML model training only | Any domain with a measurable metric |
 | **Metric** | val_bpb (validation bits per byte) | Any mechanical metric you define |
 | **Scope** | Single file (train.py) | Any glob pattern (e.g., `src/**/*.ts`) |
-| **Commands** | 1 (run the script) | 14 subcommands + flags |
+| **Commands** | 1 (run the script) | 13 commands (core loop + 12 subcommands) + flags |
 | **Setup** | Manual (edit program.md) | Interactive wizard (`/autoresearch:plan`) |
 | **Hardware** | Requires NVIDIA GPU (H100/A100/RTX) | No special hardware — runs wherever Claude Code runs |
 | **Cost** | GPU compute ($2-5/hour for H100) | Claude API tokens only |
@@ -153,7 +153,7 @@ uv run train.py    # That's it. The entire interface.
 
 Configuration via `program.md` (a markdown file the agent reads for instructions). No flags, no modes, no interactive setup.
 
-### Claude Autoresearch: 12 Specialized Commands
+### Claude Autoresearch: 13 Specialized Commands
 
 | Command | What It Does | Karpathy Equivalent |
 |---------|-------------|---------------------|
@@ -162,24 +162,25 @@ Configuration via `program.md` (a markdown file the agent reads for instructions
 | `/autoresearch:debug` | Autonomous bug-hunting with scientific method | ❌ No equivalent |
 | `/autoresearch:fix` | Autonomous error crusher until zero errors | ❌ No equivalent |
 | `/autoresearch:security` | STRIDE + OWASP security audit with red-team personas | ❌ No equivalent |
-| `/autoresearch:ship` | Universal shipping workflow (9 ship types) | ❌ No equivalent |
 | `/autoresearch:scenario` | Scenario explorer — 12 dimensions, 5 domains | ❌ No equivalent |
 | `/autoresearch:predict` | Multi-persona swarm prediction (5 expert debate) | ❌ No equivalent (Karpathy's vision: "SETI@home for ML") |
 | `/autoresearch:learn` | Autonomous documentation engine — scout, generate, validate, fix | ❌ No equivalent |
 | `/autoresearch:reason` | Adversarial refinement — blind judge debate for subjective domains | ❌ No equivalent (Karpathy's Q7: "non-differentiable systems") |
 | `/autoresearch:probe` | Adversarial requirement / assumption interrogation — 8 personas probe user + codebase to mechanical saturation, emits ready-to-run autoresearch config | ❌ No equivalent |
+| `/autoresearch:improve` | Product improvement engine — research ICP challenges, rank improvements, generate PRDs | ❌ No equivalent |
 | `/autoresearch:evals` | Analyze iteration results — trends, plateaus, regressions, adaptive checkpoints | ❌ No equivalent |
+| `/autoresearch:regression` | Stability gate — diff baseline vs candidate across 8 dimensions, STABLE/UNSTABLE verdict | ❌ No equivalent |
 
 ### Command Chaining (Claude Autoresearch Only)
 
 Commands chain together — each command's output feeds the next:
 
 ```
-predict → scenario → debug → fix → ship     (full quality pipeline)
-plan → loop → security → ship                 (feature lifecycle)
-debug → fix → ship                             (production incident)
+predict → scenario → debug → fix             (full quality pipeline)
+plan → loop → security                         (feature lifecycle)
+debug → fix                                    (production incident)
 predict --adversarial → security → fix         (pre-deploy hardening)
-learn → security → ship                        (docs + audit + release)
+learn → security                               (docs + audit)
 reason → predict → fix                           (debate → validate → implement)
 reason → scenario,debug,fix                       (converge → explore → test → fix)
 probe → plan,autoresearch                        (interrogate → config → loop)
@@ -270,16 +271,14 @@ autoresearch/
 │           ├── debug.md                    ← /autoresearch:debug
 │           ├── fix.md                      ← /autoresearch:fix
 │           ├── security.md                 ← /autoresearch:security
-│           ├── ship.md                     ← /autoresearch:ship
 │           ├── scenario.md                 ← /autoresearch:scenario
 │           ├── predict.md                  ← /autoresearch:predict
 │           ├── learn.md                    ← /autoresearch:learn
 │           ├── reason.md                   ← /autoresearch:reason
 │           ├── probe.md                    ← /autoresearch:probe
 │           └── evals.md                    ← /autoresearch:evals (NEW)
-├── .opencode/                              ← OpenCode port (via transform.sh)
-├── .agents/ + plugins/                     ← Codex port (via transform.sh)
-├── scripts/transform.sh                    ← Single platform transform
+├── claude-plugin/                          ← Claude Code plugin package (via transform.sh)
+├── scripts/transform.sh                    ← .claude/ → claude-plugin/ sync
 ├── guide/                                  ← Comprehensive guides (one per command)
 └── README.md
 ```
@@ -345,11 +344,10 @@ autoresearch/
 | **Bug hunting** | ❌ Not supported | ✅ `/autoresearch:debug` — scientific method, 7 investigation techniques |
 | **Error fixing** | ❌ Not supported | ✅ `/autoresearch:fix` — iterative repair until zero errors |
 | **Security audit** | ❌ Not supported | ✅ `/autoresearch:security` — STRIDE + OWASP + 4 red-team personas |
-| **Shipping** | ❌ Not supported | ✅ `/autoresearch:ship` — 9 ship types (code, content, marketing, etc.) |
 | **Scenario exploration** | ❌ Not supported | ✅ `/autoresearch:scenario` — 12 dimensions, 5 domains |
 | **Multi-persona analysis** | ❌ Not supported (Karpathy's stated vision) | ✅ `/autoresearch:predict` — 5 expert personas debate before action |
 | **Documentation** | ❌ Not supported | ✅ `/autoresearch:learn` — scout, generate, validate, fix loop |
-| **Command chaining** | ❌ Not supported | ✅ `predict → debug → fix → ship` and many more |
+| **Command chaining** | ❌ Not supported | ✅ `predict → debug → fix` and many more |
 
 ### Platform & Compatibility
 
@@ -388,25 +386,22 @@ Takes a broken state and iteratively repairs it. Auto-detects what's broken (tes
 ### 6. Security Auditing (`/autoresearch:security`)
 STRIDE threat modeling + OWASP Top 10 sweeps + 4 adversarial red-team personas. Read-only by default (add `--fix` for auto-remediation). Every finding requires code evidence (file:line + attack scenario). Supports `--diff` (delta mode), `--fail-on` (CI/CD gating), and structured report output.
 
-### 7. Universal Shipping (`/autoresearch:ship`)
-8-phase workflow: identify → inventory → checklist → prepare → dry-run → ship → verify → log. Auto-detects ship type (code PR, deployment, content, marketing email, sales deck, research paper, design assets). Every checklist item is mechanically verifiable.
-
-### 8. Scenario Exploration (`/autoresearch:scenario`)
+### 7. Scenario Exploration (`/autoresearch:scenario`)
 Takes a seed scenario and generates situations across 12 dimensions: happy path, error, edge case, abuse, scale, concurrent, temporal, data variation, permission, integration, recovery, state transition. 5 domain modes (software, product, business, security, marketing). Outputs a structured scenario map.
 
-### 9. Multi-Persona Prediction (`/autoresearch:predict`)
+### 8. Multi-Persona Prediction (`/autoresearch:predict`)
 5 expert personas (Architect, Security Analyst, Performance Engineer, Reliability Engineer, Devil's Advocate) independently analyze code, debate findings, and reach consensus. Chains directly to any other command. This is the closest implementation of Karpathy's stated vision for "SETI@home for ML" — multiple perspectives before action.
 
-### 10. Autonomous Documentation (`/autoresearch:learn`)
+### 9. Autonomous Documentation (`/autoresearch:learn`)
 4-mode documentation engine: init (create from scratch), update (refresh existing), check (read-only health report), summarize (quick overview). Scouts codebase, detects project type, generates docs with Mermaid diagrams and cross-references, then validates and iteratively fixes until docs match reality. Auto-generates conditional docs (API reference, testing guide, config guide, changelog) when signals detected.
 
-### 11. Iteration Analytics (`/autoresearch:evals`)
+### 10. Iteration Analytics (`/autoresearch:evals`)
 One-shot analysis of iteration results. Reads `*-results.tsv` files, dynamically detects columns, identifies trends, plateaus, regressions, and diminishing returns. Adaptive mid-loop checkpoints (`floor(max_iterations/3)`) provide real-time feedback during long runs. Backward compatible with v2.0.x TSV format. Karpathy's loop produces raw TSV but has no built-in analytics.
 
-### 12. Noise Handling
+### 11. Noise Handling
 Real-world metrics fluctuate (benchmark times, Lighthouse scores). Claude Autoresearch supports multi-run verification (run verify 3-5 times, use median), minimum delta thresholds (only keep if improvement exceeds noise floor), and confirmation runs.
 
-### 13. Crash Recovery Protocol
+### 12. Crash Recovery Protocol
 | Failure | Karpathy | Claude Autoresearch |
 |---------|----------|---------------------|
 | Syntax error | Agent may keep iterating on broken code | Fix immediately, don't count as iteration |
@@ -415,7 +410,7 @@ Real-world metrics fluctuate (benchmark times, Lighthouse scores). Claude Autore
 | Infinite loop | Loop hangs indefinitely | Kill after timeout, revert |
 | External dependency | Loop fails | Skip, log, try different approach |
 
-### 14. Stuck Escalation
+### 13. Stuck Escalation
 After 5 consecutive discards, Claude auto-escalates:
 1. Re-reads ALL in-scope files from scratch
 2. Re-reads the original goal statement
@@ -426,10 +421,10 @@ After 5 consecutive discards, Claude auto-escalates:
 
 Karpathy's loop has no stuck detection — it just keeps trying.
 
-### 15. CI/CD Integration
+### 14. CI/CD Integration
 GitHub Actions, GitLab CI, and pre-commit hook examples for automated nightly optimization, security gates on PRs, and auto-fix workflows. None of this exists in Karpathy's version.
 
-### 16. MCP Server Integration
+### 15. MCP Server Integration
 Claude Autoresearch can use any MCP server during the loop — databases (PostgreSQL), analytics platforms, external APIs, Puppeteer/Playwright, Slack, Stripe, Sentry, Cloudflare. This enables real-time data-driven iteration against live systems.
 
 ---
@@ -465,7 +460,7 @@ The cost: it only works for ML training optimization on a single GPU.
 
 > *"Set the GOAL → Claude runs the LOOP → You wake up to results"*
 
-Claude Autoresearch's design trades ML-specific depth for universal breadth. The same 7 principles apply, but scope, metric, and verify are user-defined — making it work for any domain. The 11 subcommands (including the core loop) add specialized workflows that don't exist in Karpathy's version:
+Claude Autoresearch's design trades ML-specific depth for universal breadth. The same 7 principles apply, but scope, metric, and verify are user-defined — making it work for any domain. The 13 commands (including the core loop) add specialized workflows that don't exist in Karpathy's version:
 
 - **Debugging** and **fixing** are fundamentally different from optimization — they have different loop structures, different success criteria, and different strategies.
 - **Security auditing** is adversarial — it requires threat modeling, not metric improvement.
@@ -488,7 +483,6 @@ The cost: it doesn't directly train models or leverage GPU compute.
 | Optimizing val_bpb on a GPT model | **Karpathy's** |
 | Improving Lighthouse score | **Claude Autoresearch** |
 | Exploring edge cases for a feature | **Claude Autoresearch** (`scenario`) |
-| Shipping a PR with confidence | **Claude Autoresearch** (`ship`) |
 | Getting expert opinions before acting | **Claude Autoresearch** (`predict`) |
 | Generating or refreshing project docs | **Claude Autoresearch** (`learn`) |
 | Running overnight ML experiments on H100 | **Karpathy's** |
@@ -508,7 +502,7 @@ The cost: it doesn't directly train models or leverage GPU compute.
 
 ### Claude Autoresearch Ecosystem
 - **Claude Code plugin marketplace** — one-command install
-- **11 subcommands** with comprehensive guides
+- **12 subcommands** with comprehensive guides
 - **50+ copy-paste examples** across 12+ domains
 - **CI/CD templates** for GitHub Actions and GitLab CI
 - **MCP server integrations** for databases, analytics, and APIs
@@ -520,7 +514,7 @@ The cost: it doesn't directly train models or leverage GPU compute.
 
 **Karpathy's autoresearch** proved that autonomous iteration works — a 630-line script, one metric, one file, and the discipline to let the agent run. It's a breakthrough demonstration focused on ML training.
 
-**Claude Autoresearch** takes that proof and asks: *what if this worked for everything?* It generalizes the principles into a skill system with 12 specialized commands, interactive setup, guard safety nets, noise handling, crash recovery, and command chaining — all running inside Claude Code on any project, any language, any domain.
+**Claude Autoresearch** takes that proof and asks: *what if this worked for everything?* It generalizes the principles into a skill system with 13 specialized commands, interactive setup, guard safety nets, noise handling, crash recovery, and command chaining — all running inside Claude Code on any project, any language, any domain.
 
 Same philosophy. Same loop. Radically different scope.
 

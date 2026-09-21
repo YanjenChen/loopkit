@@ -2,7 +2,7 @@
 
 Type a plain-language goal. The orchestrator classifies it, selects a pipeline, and loops across subcommands until the goal is verifiably met — no manual chaining, no babysitting iteration counts.
 
-It is a **meta-loop over the existing 14 commands** — it never edits code itself, only sequences the tools that do.
+It is a **meta-loop over the existing 13 commands** — it never edits code itself, only sequences the tools that do.
 
 ---
 
@@ -10,7 +10,7 @@ It is a **meta-loop over the existing 14 commands** — it never edits code itse
 
 - You have a goal but don't know which command or chain to pick
 - You want the system to choose and adapt the pipeline as it learns what's working
-- Your goal is predicate-bearing: fix-broken, ship-ready, optimize, harden, build-feature
+- Your goal is predicate-bearing: fix-broken, optimize, harden, build-feature
 - You want one upfront confirmation, then autonomous iteration until done
 
 **Not for:** goals where you already know the exact command to run (use that command directly); goals with a `Metric:` / `Verify:` already defined (classic loop runs unchanged); large greenfield scaffolding from scratch (the orchestrator iterates toward green on a defined acceptance check; it is not a code generator).
@@ -31,7 +31,7 @@ The agent:
 5. **Prints a banner** — projected cycle budget, `--max-cycles` ceiling, Units-remaining definition
 6. **Loops** — assess gap → route to next subcommand → run it → recompute Units remaining → repeat
 7. **Stops** when the predicate is met, on Plateau (5 flat cycles), or at the ceiling (default 50)
-8. **Ship gate** — if your goal implies shipping, explicit approval is always required; no auto-ship
+8. **Stays local** — the orchestrator never pushes, publishes, or deploys; those steps stay with you
 
 ---
 
@@ -55,7 +55,7 @@ The detected mode is always printed in a banner — routing is never silent.
 
 ### Orchestration Loop
 
-For predicate-bearing archetypes (`fix-broken`, `ship-ready`, `optimize-metric`, `harden`, `build-feature`). A mechanical Success predicate exists, so the orchestrator can measure progress and loop until done.
+For predicate-bearing archetypes (`fix-broken`, `optimize-metric`, `harden`, `build-feature`). A mechanical Success predicate exists, so the orchestrator can measure progress and loop until done.
 
 **Flow:**
 ```
@@ -71,16 +71,15 @@ classify goal
       → recompute Units remaining
   → verify hop (if a high-impact change was accepted):
       independent held-out / adversarial re-check via reason/predict
-      before declaring DONE or entering the ship gate
+      before declaring DONE
   → STOP: predicate met | Plateau | ceiling | blocked
-  → ship gate (if pipeline includes ship — always human-approved)
 ```
 
-The **verify hop** is the orchestrator's guard against shipping a change that games its own signal: when a high-impact change is accepted, routing flags `pending_verify` and the loop spends one extra hop re-checking the predicate on a held-out / adversarial basis (dispatched to `reason`/`predict`) before it will declare DONE or enter the ship gate. It is advisory to convergence — it never auto-approves ship, which stays human-gated. A change without that flag follows the prior routing unchanged.
+The **verify hop** is the orchestrator's guard against accepting a change that games its own signal: when a high-impact change is accepted, routing flags `pending_verify` and the loop spends one extra hop re-checking the predicate on a held-out / adversarial basis (dispatched to `reason`/`predict`) before it will declare DONE. It is advisory to convergence. A change without that flag follows the prior routing unchanged.
 
 ### Single-Pass Dispatch
 
-For subjective or terminal archetypes (`explore`, `document`, `decide-design`, `what-to-build`). No mechanical predicate can be derived, so the orchestrator routes to one self-terminating subcommand, lets it run, and reports. No loop, no Plateau, no ceiling, no ship gate.
+For subjective or terminal archetypes (`explore`, `document`, `decide-design`, `what-to-build`). No mechanical predicate can be derived, so the orchestrator routes to one self-terminating subcommand, lets it run, and reports. No loop, no Plateau, no ceiling.
 
 ```
 classify goal → route to one subcommand → run → report
@@ -103,12 +102,11 @@ classify goal → route to one subcommand → run → report
 
 ## Goal Archetypes
 
-The orchestrator classifies your goal into one of 9 archetypes and selects a starting pipeline. The router adapts per cycle from observed state — the preset is a starting point, not a fixed script.
+The orchestrator classifies your goal into one of 8 archetypes and selects a starting pipeline. The router adapts per cycle from observed state — the preset is a starting point, not a fixed script.
 
 | Archetype | Example Goals | Mode | Starting Pipeline |
 |-----------|--------------|------|-------------------|
 | `fix-broken` | "fix the login bug", "tests are failing" | Orchestration loop | debug → fix → regression |
-| `ship-ready` | "make this shippable", "get this to production" | Orchestration loop | regression → fix → ship |
 | `optimize-metric` | "make the API faster", "reduce bundle size" | Orchestration loop | plan (internal) → core loop |
 | `harden` | "security-harden the auth module", "close the XSS" | Orchestration loop | security → fix → security |
 | `build-feature` | "build this feature TDD", "implement the checkout flow" | Orchestration loop | scenario → fix (TDD-ladder) |
@@ -127,7 +125,6 @@ The upfront confirmation shows:
 - **Archetype detected** (e.g., `fix-broken`)
 - **Mode** (Orchestration loop or Single-pass dispatch)
 - **Predicate** — exact command + expected result (e.g., `npm test` → exit 0, 0 failing)
-- **Terminal choice** — stop at verified vs. proceed to ship
 
 This is one question, upfront. Catching a misclassification at cycle 0 is free; catching it at cycle 40 is not.
 
@@ -266,10 +263,10 @@ Classifies as `what-to-build`. Single-pass dispatch to `/autoresearch:improve`. 
 ### Preview before committing compute
 
 ```
-/autoresearch make this shippable --dry-run
+/autoresearch fix the failing tests --dry-run
 ```
 
-Prints: archetype `ship-ready`, predicate `npm test && tsc --noEmit` → exit 0, pipeline `regression → fix → ship`, projected 15–30 cycles. No execution.
+Prints: archetype `fix-broken`, predicate `npm test` → exit 0, pipeline `debug → fix → regression`, projected 15–30 cycles. No execution.
 
 ### Override cycle ceiling
 
@@ -288,7 +285,7 @@ Classifies as `harden`. Runs security → fix → security. Stops at 20 cycles i
 - **The one upfront question matters.** Read the predicate carefully. "exit 0" vs "0 HARD regressions" are different definitions of done — correct it before confirming.
 - **Plateau is not failure.** A Plateau report means the goal may need a different decomposition, tighter scope, or a more specific predicate. The checkpoint preserves everything you got.
 - **Manual chains still work.** If you know exactly what you need, use it directly. The orchestrator is for when you don't.
-- **Ship is never automatic.** Even when your goal implies shipping, the orchestrator pauses for explicit approval. Autonomy does not mean irreversibility.
+- **Release stays with you.** The orchestrator never pushes, publishes, or deploys — when the loop stops, it reports a verdict and leaves release decisions to you. Autonomy does not mean irreversibility.
 - **Single-pass goals are instant.** Goals classified as `what-to-build`, `document`, or `decide-design` dispatch to one subcommand and finish — no loop overhead.
 
 ---
@@ -297,7 +294,6 @@ Classifies as `harden`. Runs security → fix → security. Stops at 20 cycles i
 
 - [/autoresearch:debug](autoresearch-debug.md) — bug-hunting loop the orchestrator sequences for `fix-broken`
 - [/autoresearch:fix](autoresearch-fix.md) — error crusher the orchestrator sequences for `fix-broken` and `build-feature`
-- [/autoresearch:regression](autoresearch-regression.md) — stability gate the orchestrator sequences for `fix-broken` and `ship-ready`
-- [/autoresearch:ship](autoresearch-ship.md) — shipping workflow; always requires explicit approval in orchestrator
+- [/autoresearch:regression](autoresearch-regression.md) — stability gate the orchestrator sequences for `fix-broken`
 - [/autoresearch:plan](autoresearch-plan.md) — manual goal → config wizard; subsumed by orchestrator's `optimize-metric` archetype
 - [Chains & Combinations](chains-and-combinations.md) — manual pipelines; orchestrator picks them automatically for you

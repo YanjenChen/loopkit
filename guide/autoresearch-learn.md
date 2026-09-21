@@ -240,13 +240,6 @@ learn/{YYMMDD}-{HHMM}-{slug}/
 /autoresearch:learn --mode update
 ```
 
-### learn → ship
-
-```
-/autoresearch:learn --mode update
-/autoresearch:ship --type code-pr
-```
-
 ---
 
 ## Anti-Patterns

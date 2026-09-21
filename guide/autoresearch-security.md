@@ -232,7 +232,7 @@ security/{YYMMDD}-{HHMM}-{slug}/
 
 ## Chain Patterns
 
-### security → fix → re-audit → ship
+### security → fix → re-audit
 
 ```
 /autoresearch:security --fail-on high
@@ -243,8 +243,6 @@ Iterations: 20
 
 /autoresearch:security --diff
 Iterations: 10
-
-/autoresearch:ship --auto
 ```
 
 ### predict → security

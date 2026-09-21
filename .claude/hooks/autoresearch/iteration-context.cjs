@@ -11,7 +11,7 @@ const HOOK_NAME = 'iteration-context';
 
 const AR_COMMANDS = [
   'autoresearch', '/autoresearch:', 'loop', 'debug', 'fix', 'scenario',
-  'predict', 'learn', 'reason', 'probe', 'security', 'ship'
+  'predict', 'learn', 'reason', 'probe', 'security'
 ];
 
 function hasArCommand(prompt) {

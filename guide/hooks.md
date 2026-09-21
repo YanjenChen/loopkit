@@ -1,6 +1,6 @@
 # Hooks Reference
 
-Autoresearch v2.2.2 ships Claude Code-only hook guardrails that fire automatically on every Claude Code session. They are defense in depth, not a security sandbox or a substitute for host permissions. Three categories: safety gates, context injection, and quality + notifications.
+Autoresearch v2.2.2 includes hook guardrails that fire automatically on every Claude Code session. They are defense in depth, not a security sandbox or a substitute for host permissions. Three categories: safety gates, context injection, and quality + notifications.
 
 ## How Hooks Work
 

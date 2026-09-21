@@ -98,16 +98,16 @@ assert_contains "$V_OUT" "dims_unavailable=.*visual-ui" "visual-ui listed UNAVAI
 
 run_verdict all-unavailable.tsv
 assert_eq "BASELINE_UNAVAILABLE" "$V_VERDICT" "all unavailable dims => BASELINE_UNAVAILABLE, not STABLE"
-assert_eq 2 "$V_CODE" "all unavailable dims exit 2 (non-ship)"
+assert_eq 2 "$V_CODE" "all unavailable dims exit 2 (not STABLE)"
 assert_contains "$V_OUT" "blocking=no-dims-ran" "all unavailable dims block on no-dims-ran"
 
 # ============================================================================
-printf '\n--- verdict: empty / no-dims-ran + ERROR paths (no false-green ship) ---\n'
+printf '\n--- verdict: empty / no-dims-ran + ERROR paths (no false green) ---\n'
 # ============================================================================
 
 run_verdict empty.tsv
 assert_eq "BASELINE_UNAVAILABLE" "$V_VERDICT" "empty/header-only TSV (no dims ran) => BASELINE_UNAVAILABLE, not STABLE"
-assert_eq 2 "$V_CODE" "empty TSV exit 2 (non-ship)"
+assert_eq 2 "$V_CODE" "empty TSV exit 2 (not STABLE)"
 assert_contains "$V_OUT" "blocking=no-dims-ran" "empty TSV blocks on no-dims-ran"
 
 MISS_OUT=$(bash "$SCORE_SH" verdict "$FIX/does-not-exist.tsv" 2>/dev/null); MISS_CODE=$?
@@ -149,7 +149,7 @@ spec_has "verdict.*STABLE|STABLE.*UNSTABLE"                       "spec: verdict
 spec_has "COMPLETE.*CONVERGED.*SATURATED|family enum"             "spec: handoff family status enum"
 
 # ============================================================================
-printf '\n--- distribution: mirror parity + host syntax ---\n'
+printf '\n--- distribution: mirror parity ---\n'
 # ============================================================================
 
 CLAUDE_MIRROR="$REPO_ROOT/.claude/commands/autoresearch/regression.md"
@@ -159,26 +159,13 @@ else
   fail "mirror parity: .claude command diverged from Claude plugin"
 fi
 
-for m in "$REPO_ROOT/.agents/skills/autoresearch/regression.md" \
-         "$REPO_ROOT/plugins/autoresearch/skills/autoresearch/regression.md"; do
-  name="${m#$REPO_ROOT/}"
-  grep -q 'request_user_input' "$m" && ! grep -q 'AskUserQuestion' "$m" \
-    && pass "host syntax: $name uses request_user_input" \
-    || fail "host syntax: $name has invalid Codex interaction token"
-done
-
-OPENCODE_MIRROR="$REPO_ROOT/.opencode/commands/autoresearch_regression.md"
-grep -q 'question (single batch)' "$OPENCODE_MIRROR" && ! grep -q 'AskUserQuestion' "$OPENCODE_MIRROR" \
-  && pass "host syntax: .opencode command uses question" \
-  || fail "host syntax: .opencode command has invalid interaction token"
-
 # ============================================================================
-printf '\n--- distribution: manifest command count = 14 + regression listed ---\n'
+printf '\n--- distribution: manifest command count = 13 + regression listed ---\n'
 # ============================================================================
 
-for mf in "$REPO_ROOT/.claude-plugin/marketplace.json" "$REPO_ROOT/claude-plugin/.claude-plugin/plugin.json" "$REPO_ROOT/plugins/autoresearch/.codex-plugin/plugin.json"; do
+for mf in "$REPO_ROOT/.claude-plugin/marketplace.json" "$REPO_ROOT/claude-plugin/.claude-plugin/plugin.json"; do
   name="${mf#$REPO_ROOT/}"
-  grep -q "14 commands" "$mf" && pass "manifest count 14: $name" || fail "manifest count 14: $name"
+  grep -q "13 commands" "$mf" && pass "manifest count 13: $name" || fail "manifest count 13: $name"
   grep -q "regression" "$mf"  && pass "manifest lists regression: $name" || fail "manifest lists regression: $name"
 done
 

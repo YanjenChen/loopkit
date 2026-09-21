@@ -146,7 +146,7 @@ verdict() {
         exit 2;
       }
       # No measurable data rows ran at all → nothing to gate on. Must NOT read as a
-      # green ship signal: an empty/header-only TSV or all-dims-unavailable run is
+      # green signal: an empty/header-only TSV or all-dims-unavailable run is
       # advisory, not STABLE. Emit BASELINE_UNAVAILABLE + non-zero exit.
       if (nrows==0) {
         printf "VERDICT: BASELINE_UNAVAILABLE\n";

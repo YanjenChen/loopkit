@@ -33,13 +33,7 @@ run_classify "broken authentication flow"
 assert_eq "fix-broken"     "$C_OUT" "classify: broken → fix-broken"
 
 run_classify "ship the release to production"
-assert_eq "ship-ready"     "$C_OUT" "classify: ship → ship-ready"
-
-run_classify "deploy v2.1 to staging"
-assert_eq "ship-ready"     "$C_OUT" "classify: deploy → ship-ready"
-
-run_classify "release candidate build"
-assert_eq "ship-ready"     "$C_OUT" "classify: release → ship-ready"
+assert_eq "explore"        "$C_OUT" "classify: ship/release carry no archetype → explore"
 
 run_classify "build the user profile feature"
 assert_eq "build-feature"  "$C_OUT" "classify: build+feature → build-feature"
@@ -119,27 +113,24 @@ assert_eq "regression" "$NH_OUT" "next-hop: regression_verdict==UNSTABLE → reg
 run_next_hop state-untested-gaps.json
 assert_eq "debug"      "$NH_OUT" "next-hop: untested_gaps>0 → debug"
 
-run_next_hop state-clean-ship.json
-assert_eq "ship"       "$NH_OUT" "next-hop: all clear + ship archetype → ship"
-
-# state with no ship archetype and all clear → DONE
+# all clear → DONE
 _tmp_state=$(mktemp /tmp/orch-test-XXXXXX.json)
 printf '{"archetype":"explore","errors_remaining":0,"regression_verdict":"STABLE","untested_gaps":0}' > "$_tmp_state"
 NH_OUT=$(bash "$ORCH" next-hop "$_tmp_state" 2>/dev/null); NH_CODE=$?
 rm -f "$_tmp_state"
-assert_eq "DONE"       "$NH_OUT" "next-hop: all clear + non-ship archetype → DONE"
+assert_eq "DONE"       "$NH_OUT" "next-hop: all clear → DONE"
 
 # Independent-verify hop: when an accepted high-impact change still awaits a fresh
-# acceptance check, route to verify before declaring DONE or shipping.
+# acceptance check, route to verify before declaring DONE.
 run_next_hop state-pending-verify.json
 assert_eq "verify"     "$NH_OUT" "next-hop: pending_verify true → verify before DONE"
 
-run_next_hop state-pending-verify-ship.json
-assert_eq "verify"     "$NH_OUT" "next-hop: pending_verify true → verify precedes ship"
-
 # Backward compat: pending_verify false (or absent) keeps the prior routing exactly.
-run_next_hop state-verify-false-ship.json
-assert_eq "ship"       "$NH_OUT" "next-hop: pending_verify false + clean + ship → ship"
+_tmp_state=$(mktemp /tmp/orch-test-XXXXXX.json)
+printf '{"archetype":"optimize-metric","errors_remaining":0,"regression_verdict":"STABLE","untested_gaps":0,"pending_verify":false}' > "$_tmp_state"
+NH_OUT=$(bash "$ORCH" next-hop "$_tmp_state" 2>/dev/null); NH_CODE=$?
+rm -f "$_tmp_state"
+assert_eq "DONE"       "$NH_OUT" "next-hop: pending_verify false + clean → DONE"
 
 NH_OUT=$(bash "$ORCH" next-hop "$FIX/does-not-exist.json" 2>/dev/null); NH_CODE=$?
 assert_eq 2 "$NH_CODE" "next-hop: missing file → exit 2"
@@ -517,7 +508,7 @@ printf '\n--- distribution parity: orchestrator artifacts across mirrors ---\n'
 # ============================================================================
 
 # The orchestrator-routing.md reference must exist in every skill mirror.
-for mirror in .claude claude-plugin .agents .opencode plugins/autoresearch; do
+for mirror in .claude claude-plugin; do
   ref="$REPO_ROOT/$mirror/skills/autoresearch/references/orchestrator-routing.md"
   if [[ -f "$ref" ]]; then
     pass "parity: orchestrator-routing.md present in $mirror"
@@ -529,10 +520,7 @@ done
 # Every skill distribution carries the canonical 2.2.2 version stamp.
 for skill in \
   .claude/skills/autoresearch/SKILL.md \
-  claude-plugin/skills/autoresearch/SKILL.md \
-  .opencode/skills/autoresearch/SKILL.md \
-  .agents/skills/autoresearch/SKILL.md \
-  plugins/autoresearch/skills/autoresearch/SKILL.md; do
+  claude-plugin/skills/autoresearch/SKILL.md; do
   assert_eq "version: 2.2.2" "$(grep -m1 '^version:' "$REPO_ROOT/$skill")" \
     "parity: $skill version is 2.2.2"
 done
@@ -544,33 +532,20 @@ console.log([
   read('.claude-plugin/marketplace.json').version,
   read('.claude-plugin/marketplace.json').plugins[0].version,
   read('claude-plugin/.claude-plugin/plugin.json').version,
-  read('plugins/autoresearch/.codex-plugin/plugin.json').version,
 ].join('\n'));
 NODE
 )
-assert_eq $'2.2.2\n2.2.2\n2.2.2\n2.2.2-codex.0' "$VERSION_SURFACES" \
-  "parity: release manifests use canonical and Codex package versions"
+assert_eq $'2.2.2\n2.2.2\n2.2.2' "$VERSION_SURFACES" \
+  "parity: release manifests use the canonical version"
 for badge in README.md guide/README.md; do
   assert_contains "version-2.2.2-blue" "$(grep -m1 'img.shields.io/badge/version-' "$REPO_ROOT/$badge")" \
     "parity: $badge badge is 2.2.2"
-done
-
-# No colon-form subcommand may leak into the space/underscore mirrors.
-for mirror in .agents .opencode plugins/autoresearch; do
-  if grep -qE 'autoresearch:[a-z]' "$REPO_ROOT/$mirror/skills/autoresearch/SKILL.md"; then
-    fail "parity: $mirror SKILL.md has a stray 'autoresearch:' colon form"
-  else
-    pass "parity: $mirror SKILL.md uses non-colon subcommand syntax"
-  fi
 done
 
 # Root scripts are the maintained source for every self-contained skill bundle.
 RUNTIME_MIRRORS=(
   .claude/skills/autoresearch
   claude-plugin/skills/autoresearch
-  .opencode/skills/autoresearch
-  .agents/skills/autoresearch
-  plugins/autoresearch/skills/autoresearch
 )
 for mirror in "${RUNTIME_MIRRORS[@]}"; do
   for helper in orchestrate.sh score-regression.sh; do
@@ -590,42 +565,37 @@ mkdir -p "$BROKEN_NODE_BIN"
 printf '#!/bin/sh\nexit 127\n' > "$BROKEN_NODE_BIN/node"
 chmod +x "$BROKEN_NODE_BIN/node"
 NODELESS_OUT=""; NODELESS_CODE=0
-for tool in claude opencode codex; do
-  NODELESS_CODE=0
-  NODELESS_OUT=$(PATH="$BROKEN_NODE_BIN:$PATH" bash "$REPO_ROOT/scripts/install.sh" --"$tool" --global \
-    --config-dir "$INSTALL_ROOT/no-node-$tool" --force 2>&1) || NODELESS_CODE=$?
-  assert_eq 1 "$NODELESS_CODE" "$tool install: unavailable Node.js is refused"
-  assert_contains "Node.js 18 or newer is required" "$NODELESS_OUT" "$tool install: Node.js prerequisite is explicit"
-  [[ ! -e "$INSTALL_ROOT/no-node-$tool/skills/autoresearch" ]] \
-    && pass "$tool install: Node.js refusal occurs before files are copied" \
-    || fail "$tool install: Node.js refusal occurs before files are copied"
-done
+NODELESS_OUT=$(PATH="$BROKEN_NODE_BIN:$PATH" bash "$REPO_ROOT/scripts/install.sh" --global \
+  --config-dir "$INSTALL_ROOT/no-node" --force 2>&1) || NODELESS_CODE=$?
+assert_eq 1 "$NODELESS_CODE" "install: unavailable Node.js is refused"
+assert_contains "Node.js 18 or newer is required" "$NODELESS_OUT" "install: Node.js prerequisite is explicit"
+[[ ! -e "$INSTALL_ROOT/no-node/skills/autoresearch" ]] \
+  && pass "install: Node.js refusal occurs before files are copied" \
+  || fail "install: Node.js refusal occurs before files are copied"
 
 UNRELATED_CWD="$INSTALL_ROOT/unrelated-project"
 mkdir -p "$UNRELATED_CWD"
-for tool in claude opencode codex; do
-  target="$INSTALL_ROOT/$tool"
-  bash "$REPO_ROOT/scripts/install.sh" --"$tool" --global \
-    --config-dir "$target" --force >/dev/null
-  installed_skill="$target/skills/autoresearch"
-  cp "$REPO_ROOT/tests/fixtures/regression/red-to-red.tsv" "$target/smoke.tsv"
+target="$INSTALL_ROOT/claude"
+bash "$REPO_ROOT/scripts/install.sh" --global \
+  --config-dir "$target" --force >/dev/null
+installed_skill="$target/skills/autoresearch"
+cp "$REPO_ROOT/tests/fixtures/regression/red-to-red.tsv" "$target/smoke.tsv"
 
-  INSTALLED_ORCH_OUT=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/orchestrate.sh" classify "fix the login bug" 2>/dev/null)
-  assert_eq "fix-broken" "$INSTALLED_ORCH_OUT" "$tool install: bundled orchestrator executes"
+INSTALLED_ORCH_OUT=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/orchestrate.sh" classify "fix the login bug" 2>/dev/null)
+assert_eq "fix-broken" "$INSTALLED_ORCH_OUT" "install: bundled orchestrator executes"
 
-  INSTALLED_REG_OUT=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/score-regression.sh" verdict \
-    "$target/smoke.tsv" 2>/dev/null)
-  assert_contains "VERDICT: STABLE" "$INSTALLED_REG_OUT" \
-    "$tool install: bundled regression scorer executes"
+INSTALLED_REG_OUT=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/score-regression.sh" verdict \
+  "$target/smoke.tsv" 2>/dev/null)
+assert_contains "VERDICT: STABLE" "$INSTALLED_REG_OUT" \
+  "install: bundled regression scorer executes"
 
-  INSTALLED_RUBRIC=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/score-regression.sh" rubric 2>/dev/null | sed -n 's/^SCORE: //p')
-  assert_ge "${INSTALLED_RUBRIC:-0}" "$RUBRIC_TARGET" \
-    "$tool install: default bundled rubric resolves outside checkout"
+INSTALLED_RUBRIC=$(cd "$UNRELATED_CWD" && bash "$installed_skill/scripts/score-regression.sh" rubric 2>/dev/null | sed -n 's/^SCORE: //p')
+assert_ge "${INSTALLED_RUBRIC:-0}" "$RUBRIC_TARGET" \
+  "install: default bundled rubric resolves outside checkout"
 
-  printf '  EVIDENCE: host=%s os=%s revision=%s installed_root=%s command=%s result=PASS\n' \
-    "$tool" "$(uname -s)" "$(git -C "$REPO_ROOT" rev-parse HEAD)" "$target" \
-    'orchestrate classify; score-regression verdict; score-regression rubric'
-done
+printf '  EVIDENCE: host=%s os=%s revision=%s installed_root=%s command=%s result=PASS\n' \
+  claude "$(uname -s)" "$(git -C "$REPO_ROOT" rev-parse HEAD)" "$target" \
+  'orchestrate classify; score-regression verdict; score-regression rubric'
 rm -rf "$INSTALL_ROOT"
 
 # ============================================================================

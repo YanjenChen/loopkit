@@ -129,7 +129,6 @@ Iterations: 5
 | `--chain security` | Critique themes seed targeted security audit |
 | `--chain scenario` | Converged version → edge case exploration |
 | `--chain predict` | Converged design → 5 expert personas stress-test it |
-| `--chain ship` | Converged content → ship as artifact |
 | `--chain learn` | Full iteration lineage → ADR documentation |
 
 **`--chain predict,scenario`** — adversarial refinement → multi-persona stress test → edge case exploration. Strongest validation path for subjective design decisions.

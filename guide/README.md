@@ -17,8 +17,9 @@ Everything you need to master autonomous iteration — from first run to advance
 
 ## Quick Start
 
-```bash
-npx skills add uditgoenka/autoresearch
+```
+/plugin marketplace add uditgoenka/autoresearch
+/plugin install autoresearch@autoresearch
 /autoresearch
 ```
 
@@ -35,7 +36,6 @@ npx skills add uditgoenka/autoresearch
 | [/autoresearch:debug](autoresearch-debug.md) | Autonomous bug-hunting with scientific method |
 | [/autoresearch:fix](autoresearch-fix.md) | Error crusher — tests, types, lint, build |
 | [/autoresearch:security](autoresearch-security.md) | STRIDE + OWASP + red-team security audit |
-| [/autoresearch:ship](autoresearch-ship.md) | 8-phase shipping workflow |
 | [/autoresearch:scenario](autoresearch-scenario.md) | Scenario explorer — 12 dimensions |
 | [/autoresearch:predict](autoresearch-predict.md) | 5 expert personas debate before you act |
 | [/autoresearch:learn](autoresearch-learn.md) | Autonomous documentation engine |
@@ -44,7 +44,7 @@ npx skills add uditgoenka/autoresearch
 | [/autoresearch:improve](autoresearch-improve.md) | Research ICP challenges, discover improvements, generate PRDs |
 | [/autoresearch:evals](autoresearch-evals.md) | Analyze results TSV — trends, plateaus, checkpoints |
 | [/autoresearch:regression](autoresearch-regression.md) | Stability gate — baseline diff, STABLE/UNSTABLE verdict before you push |
-| [Chains & Combinations](chains-and-combinations.md) | Multi-command pipelines with all 14 commands |
+| [Chains & Combinations](chains-and-combinations.md) | Multi-command pipelines with all 13 commands |
 | [Examples by Domain](examples-by-domain.md) | Real-world examples: software, sales, marketing, DevOps, ML, HR |
 | [Advanced Patterns](advanced-patterns.md) | Guards, MCP, CI/CD, evals checkpoints, transform.sh |
 | [Hooks Reference](hooks.md) | 9 auto-firing hooks: safety gates, context injection, notifications |
@@ -61,11 +61,9 @@ npx skills add uditgoenka/autoresearch
 | Don't know what metric to use | `/autoresearch:plan` |
 | Requirements are unclear — surface hidden constraints | `/autoresearch:probe` |
 | Run a security audit | `/autoresearch:security` |
-| Ship a PR / deployment / release | `/autoresearch:ship` |
 | Hunt all bugs in a codebase | `/autoresearch:debug` |
 | Fix all errors (tests, types, lint) | `/autoresearch:fix` |
 | Debug then auto-fix | `/autoresearch:debug --fix` |
-| Check if something is ready to ship | `/autoresearch:ship --checklist-only` |
 | Explore edge cases for a feature | `/autoresearch:scenario` |
 | Generate test scenarios | `/autoresearch:scenario --format test-scenarios` |
 | Get expert opinions before starting | `/autoresearch:predict` |
@@ -75,7 +73,7 @@ npx skills add uditgoenka/autoresearch
 | Discover what to build next for your ICP | `/autoresearch:improve` |
 | Analyze loop results, detect plateaus | `/autoresearch:evals` |
 | Verify a change is safe to push (catch regressions) | `/autoresearch:regression` |
-| Gate, auto-fix, then ship in one chain | `/autoresearch:regression --predict --evals --fix --ship` |
+| Gate and auto-fix in one chain | `/autoresearch:regression --predict --evals --fix` |
 | Optimize without breaking existing tests | `/autoresearch` with `Guard: npm test` |
 | Bound any looping command | Add `Iterations: N` inline |
 

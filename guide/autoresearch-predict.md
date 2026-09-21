@@ -137,7 +137,7 @@ Goal: Pre-deployment security review
 ### Full pipeline (single command)
 
 ```
-/autoresearch:predict --chain scenario,debug,fix,ship
+/autoresearch:predict --chain scenario,debug,fix
 Scope: src/**
 Goal: Complete quality pipeline for v2.0 release
 ```
@@ -164,10 +164,8 @@ Goal: Complete quality pipeline for v2.0 release
 | `--chain debug` | Ranked hypotheses → debug tests in priority order |
 | `--chain security` | Security-type findings → targeted audit vectors |
 | `--chain fix` | Root causes first → cascade-aware fix ordering |
-| `--chain ship` | Findings classified as BLOCKER/WARNING/INFO → ship gate |
 | `--chain scenario` | Confirmed findings → scenario seeds |
 | `--chain scenario,debug,fix` | Quality pipeline for new features |
-| `--chain scenario,debug,fix,ship` | Full lifecycle — zero context loss |
 
 ---
 

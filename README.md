@@ -2,13 +2,11 @@
 
 # Autoresearch
 
-**Turn [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenCode](https://opencode.ai), or [OpenAI Codex](https://developers.openai.com/codex) into a relentless improvement engine.**
+**Turn [Claude Code](https://docs.anthropic.com/en/docs/claude-code) into a relentless improvement engine.**
 
 Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) — constraint + mechanical metric + autonomous iteration = compounding gains.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blue?logo=anthropic&logoColor=white)](https://docs.anthropic.com/en/docs/claude-code)
-[![OpenCode](https://img.shields.io/badge/OpenCode-Skill-purple)](https://opencode.ai)
-[![Codex](https://img.shields.io/badge/Codex-Skill-green?logo=openai&logoColor=white)](https://developers.openai.com/codex)
 [![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/uditgoenka/autoresearch/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -22,7 +20,7 @@ Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) —
 
 *You don't need AGI. You need a goal, a metric, and a loop that never quits.*
 
-**Supports Claude Code, OpenCode, and OpenAI Codex for the core skill, bundled runtime, installation, and verification surface. Hook guardrails are Claude Code-only.**
+**Built for Claude Code. The plugin install and `scripts/install.sh` both include the core skill, bundled runtime, and hook guardrails.**
 
 > **v2.2.0 — Autonomous Orchestrator:** Type a plain-language goal to `/autoresearch` and it classifies your goal, derives a Success predicate, confirms it once, then loops across subcommands until done. No manual chaining required. `Metric:`/`Verify:` invocations run the classic loop unchanged. See [guide/autoresearch-orchestrator.md](guide/autoresearch-orchestrator.md).
 
@@ -35,14 +33,14 @@ Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) —
 ---
 
 ```
-     PLAN             LOOP            DEBUG             FIX             SECURE            SHIP
- ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
- │   Goal   │     │  Modify  │     │   Find   │     │   Fix    │     │  STRIDE  │     │  Stage   │
- │  Metric  │────▶│  Verify  │────▶│   Bugs   │────▶│  Errors  │────▶│  OWASP   │────▶│  Deploy  │
- │  Scope   │     │Keep/Drop │     │  Trace   │     │  Repair  │     │ Red Team │     │ Release  │
- └──────────┘     └──────────┘     └──────────┘     └──────────┘     └──────────┘     └──────────┘
- /autoresearch:   /autoresearch    /autoresearch:   /autoresearch:   /autoresearch:   /autoresearch:
-   plan                              debug            fix              security         ship
+     PLAN             LOOP            DEBUG             FIX             SECURE
+ ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
+ │   Goal   │     │  Modify  │     │   Find   │     │   Fix    │     │  STRIDE  │
+ │  Metric  │────▶│  Verify  │────▶│   Bugs   │────▶│  Errors  │────▶│  OWASP   │
+ │  Scope   │     │Keep/Drop │     │  Trace   │     │  Repair  │     │ Red Team │
+ └──────────┘     └──────────┘     └──────────┘     └──────────┘     └──────────┘
+ /autoresearch:   /autoresearch    /autoresearch:   /autoresearch:   /autoresearch:
+   plan                              debug            fix              security
 
  ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
  │  Probe   │     │ Scenario │     │ Predict  │     │  Reason  │
@@ -116,7 +114,7 @@ Before looping, Claude performs a one-time setup:
 
 ## Hooks & Safety
 
-Hooks are defense-in-depth guardrails, not a security sandbox. Claude Code ships the hook surface; OpenCode and Codex ship the core skill/runtime/install surface without hook parity.
+Hooks are defense-in-depth guardrails, not a security sandbox. The plugin install and `scripts/install.sh` both register them; a manual copy of the skill and commands does not.
 
 ### What's Protected
 
@@ -154,7 +152,7 @@ Customize blocked directories with a `.ckignore` file (gitignore syntax) at your
 
 See [guide/hooks.md](guide/hooks.md) for full reference.
 
-Release preparation and contributor verification live in [scripts/release.md](scripts/release.md).
+Contributor verification (local test suites) lives in [CONTRIBUTING.md](CONTRIBUTING.md#testing).
 
 ---
 
@@ -167,7 +165,6 @@ Release preparation and contributor verification live in [scripts/release.md](sc
 | `/autoresearch:debug` | Hunt bugs via hypothesis iteration | 15 |
 | `/autoresearch:fix` | Crush errors one-by-one to zero | 20 |
 | `/autoresearch:security` | STRIDE + OWASP audit with red-team | 15 |
-| `/autoresearch:ship` | Ship through 8 phases | linear |
 | `/autoresearch:scenario` | Generate edge cases across 12 dimensions | 20 |
 | `/autoresearch:predict` | 5 expert personas debate | one-shot |
 | `/autoresearch:learn` | Scout → generate docs → validate → fix | 10 |
@@ -181,10 +178,6 @@ Release preparation and contributor verification live in [scripts/release.md](sc
 
 **All commands use interactive setup when invoked without arguments.** Just type the command — the agent asks for what it needs with smart defaults based on your codebase.
 
-> **OpenCode users:** Commands use underscore naming (`/autoresearch_debug`, `/autoresearch_fix`, etc.). All 14 commands available.
->
-> **Codex users:** Invoke via `$autoresearch` mention syntax. Subcommands are keywords: `$autoresearch debug`, `$autoresearch plan`, etc.
-
 ### Quick Decision Guide
 
 | I want to... | Use |
@@ -194,12 +187,10 @@ Release preparation and contributor verification live in [scripts/release.md](sc
 | Run bounded iterations | Add `Iterations: N` to any command |
 | Don't know what metric to use | `/autoresearch:plan` |
 | Run a security audit | `/autoresearch:security` |
-| Ship a PR / deployment / release | `/autoresearch:ship` |
 | Optimize without breaking existing tests | Add `Guard: npm test` |
 | Hunt all bugs in a codebase | `/autoresearch:debug` |
 | Fix all errors (tests, types, lint) | `/autoresearch:fix` |
 | Debug then auto-fix | `/autoresearch:debug --fix` |
-| Check if something is ready to ship | `/autoresearch:ship --checklist-only` |
 | Explore edge cases for a feature | `/autoresearch:scenario` |
 | Generate test scenarios | `/autoresearch:scenario --format test-scenarios` |
 | Get expert opinions before starting | `/autoresearch:predict` |
@@ -215,23 +206,15 @@ Release preparation and contributor verification live in [scripts/release.md](sc
 | Analyze trends and plateaus across past runs | `/autoresearch:evals` |
 | Check if a run has stalled | `/autoresearch:evals --file *-results.tsv` |
 | Verify a change won't regress before pushing | `/autoresearch:regression` |
-| Gate a PR: predict, fix, re-gate, then ship | `/autoresearch:regression --predict --fix --ship` |
+| Gate a PR: predict, fix, re-gate | `/autoresearch:regression --predict --fix` |
 
 ---
 
 ## Quick Start
 
-### Claude Code
+### Install
 
-**Option A — npx install (recommended):**
-
-```bash
-npx skills add uditgoenka/autoresearch
-```
-
-All 14 commands are available after restarting Claude Code.
-
-**Option B — Plugin install:**
+**Option A — Plugin install (recommended):**
 
 ```
 /plugin marketplace add uditgoenka/autoresearch
@@ -247,7 +230,7 @@ All 14 commands are available after restarting Claude Code.
 
 Run `/reload-plugins` to activate. No need to uninstall or re-clone.
 
-**Option C — Manual copy:**
+**Option B — Manual copy:**
 ```bash
 git clone https://github.com/uditgoenka/autoresearch.git
 
@@ -264,55 +247,12 @@ cp -r autoresearch/.claude/commands/autoresearch ~/.claude/commands/autoresearch
 cp autoresearch/.claude/commands/autoresearch.md ~/.claude/commands/autoresearch.md
 ```
 
-**Option D — Guided installer:**
+**Option C — Guided installer:**
 ```bash
 git clone https://github.com/uditgoenka/autoresearch.git
 cd autoresearch
-./scripts/install.sh --claude --global
+./scripts/install.sh --global   # or --local for the current project only
 ```
-
-### OpenCode Quick Start
-
-**Option A — Guided installer (recommended):**
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-cd autoresearch
-./scripts/install.sh --opencode --global
-```
-
-**Option B — Manual copy:**
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-
-cp -r autoresearch/.opencode/skills/autoresearch .opencode/skills/autoresearch
-cp autoresearch/.opencode/commands/autoresearch*.md .opencode/commands/
-```
-
-Or globally:
-```bash
-cp -r autoresearch/.opencode/skills/autoresearch ~/.config/opencode/skills/autoresearch
-cp autoresearch/.opencode/commands/autoresearch*.md ~/.config/opencode/commands/
-```
-
-> All 14 commands available as `/autoresearch_debug`, `/autoresearch_fix`, `/autoresearch_improve`, etc.
-
-### Codex Quick Start
-
-**Option A — Guided installer (recommended):**
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-cd autoresearch
-./scripts/install.sh --codex --global
-```
-
-**Option B — Manual copy:**
-```bash
-git clone https://github.com/uditgoenka/autoresearch.git
-cp -r autoresearch/.agents/skills/autoresearch ~/.codex/skills/autoresearch
-```
-
-> Invoke via `$autoresearch` mention syntax. Subcommands are keywords: `$autoresearch plan`, `$autoresearch debug`, `$autoresearch evals`, etc.
-> The installed Codex package includes the bundled orchestrator and regression helpers under `plugins/autoresearch/skills/autoresearch/` and `.agents/skills/autoresearch/`.
 
 ### Run It
 
@@ -409,29 +349,6 @@ Codebase recon → asset inventory → trust boundaries → STRIDE threat model 
 
 ---
 
-## /autoresearch:ship — Universal Shipping Workflow
-
-Ship anything through 8 phases: **Identify → Inventory → Checklist → Prepare → Dry-run → Ship → Verify → Log.**
-
-```
-/autoresearch:ship --auto
-```
-
-Auto-detects what you're shipping (code PR, deployment, blog post, email campaign, sales deck, research paper, design assets) and generates domain-specific checklists — every item mechanically verifiable.
-
-| Flag | Purpose |
-|------|---------|
-| `--dry-run` | Validate everything but don't ship |
-| `--auto` | Auto-approve if checklist passes |
-| `--force` | Skip non-critical items (blockers still enforced) |
-| `--rollback` | Undo last ship action |
-| `--monitor N` | Post-ship monitoring for N minutes |
-| `--checklist-only` | Just check readiness |
-
-**9 supported types:** code-pr, code-release, deployment, content, marketing-email, marketing-campaign, sales, research, design.
-
----
-
 ## /autoresearch:scenario — Scenario Explorer
 
 Autonomous scenario exploration engine. Takes a seed scenario and iteratively generates situations across 12 dimensions — happy paths, errors, edge cases, abuse, scale, concurrency, temporal, data variation, permissions, integrations, recovery, and state transitions.
@@ -455,7 +372,7 @@ Seed analysis → Decompose into 12 dimensions → Generate ONE situation per it
 
 ## /autoresearch:predict — Multi-Persona Prediction
 
-Before you debug, fix, or ship — get 5 expert perspectives in 2 minutes.
+Before you debug, fix, or release — get 5 expert perspectives in 2 minutes.
 
 Simulates a team (Architect, Security Analyst, Performance Engineer, Reliability Engineer, Devil's Advocate) who independently analyze your code, debate findings, and reach consensus.
 
@@ -523,7 +440,7 @@ Topic: Add multi-tenant isolation to the database layer
 | `--depth <level>` | shallow (5 rounds), standard (15), deep (30) |
 | `--adversarial` | Rotate Skeptic + Contradiction Finder + Edge-Case Hunter to front |
 | `--mode <mode>` | interactive (default) or autonomous |
-| `--chain <targets>` | plan, predict, debug, scenario, reason, fix, ship, learn |
+| `--chain <targets>` | plan, predict, debug, scenario, reason, fix, learn |
 
 **Output:** Creates `probe/{date}-{slug}/` with probe-spec.md, constraints.tsv, autoresearch-config.yml, handoff.json.
 
@@ -585,7 +502,7 @@ Prints a checkpoint report every 10 iterations without interrupting the loop.
 Before you push, prove the change didn't break what already worked. Captures baseline behavior from a `git worktree` of the base ref, diffs the candidate across **8 dimensions**, and emits a single **STABLE / UNSTABLE** verdict.
 
 ```
-/autoresearch:regression --predict --evals --fix --ship
+/autoresearch:regression --predict --evals --fix
 ```
 
 **Core invariant:** a regression is a **green→red transition only**. Pre-existing failures (red→red), new tests (absent→red), and flaky tests (flake→red) are classified and excluded — never counted as regressions.
@@ -666,25 +583,28 @@ autoresearch/
 ├── COMPARISON.md                                  ← Karpathy's vs Claude Autoresearch
 ├── guide/                                         ← Guides — one per command + advanced patterns
 ├── scripts/
-│   ├── install.sh                                 ← Guided installer (Claude Code + OpenCode + Codex)
-│   ├── transform.sh                               ← Single transform: .claude/ → .opencode/ + .agents/
-│   ├── release.sh                                 ← Release automation
-│   └── release.md                                 ← Release checklist
+│   ├── install.sh                                 ← Guided installer (Claude Code)
+│   ├── transform.sh                               ← Sync: .claude/ → claude-plugin/ + skill-local helpers
+│   ├── orchestrate.sh                             ← Orchestrator routing seam
+│   └── score-regression.sh                        ← Regression scoring backend
+├── tests/                                         ← Shell test suites (run locally)
 ├── .claude/
 │   ├── skills/autoresearch/
 │   │   ├── SKILL.md                               ← Thin routing table (41 lines)
-│   │   └── references/                            ← 3 focused reference files
-│   │       ├── security-checklist.md              ← STRIDE + OWASP
-│   │       ├── predict-personas.md                ← 5 personas + adversarial set
-│   │       └── reason-judge-protocol.md           ← Adversarial refinement loop
+│   │   ├── references/                            ← 4 focused reference files
+│   │   │   ├── security-checklist.md              ← STRIDE + OWASP
+│   │   │   ├── predict-personas.md                ← 5 personas + adversarial set
+│   │   │   ├── reason-judge-protocol.md           ← Adversarial refinement loop
+│   │   │   └── orchestrator-routing.md            ← Goal archetypes + routing contract
+│   │   └── scripts/                               ← Bundled runtime helpers (synced by transform.sh)
+│   ├── hooks/autoresearch/                        ← Hook guardrails
 │   └── commands/
 │       ├── autoresearch.md                        ← Core loop (self-contained, ~100 lines)
-│       └── autoresearch/                          ← 13 subcommand files (self-contained)
+│       └── autoresearch/                          ← 12 subcommand files (self-contained)
 │           ├── plan.md
 │           ├── debug.md
 │           ├── fix.md
 │           ├── security.md
-│           ├── ship.md
 │           ├── scenario.md
 │           ├── predict.md
 │           ├── learn.md
@@ -693,13 +613,8 @@ autoresearch/
 │           ├── probe.md
 │           ├── evals.md
 │           └── regression.md
-├── .opencode/                                     ← OpenCode port (via transform.sh)
-│   ├── skills/autoresearch/
-│   └── commands/                                  ← 14 command files (autoresearch_*.md)
-├── .agents/                                       ← Codex port (via transform.sh)
-│   └── skills/autoresearch/
-├── plugins/                                       ← Codex plugin metadata
-│   └── openai.yaml
+├── claude-plugin/                                 ← Claude Code plugin package (via transform.sh)
+├── .claude-plugin/marketplace.json                ← Plugin marketplace entry
 └── LICENSE
 ```
 
@@ -724,12 +639,6 @@ A: Point it at any `*-results.tsv` file from a previous run. It reports trends, 
 
 **Q: Does this work with any project?**
 A: Yes. Any language, framework, or domain. Install via plugin (Claude Code), installer script, or manual copy.
-
-**Q: Does this work with OpenCode?**
-A: Yes. Run `./scripts/install.sh --opencode --global` or manually copy `.opencode/` files. Commands use underscore naming (`/autoresearch_debug`, `/autoresearch_evals`, etc.). All 14 commands available.
-
-**Q: Does this work with OpenAI Codex?**
-A: Yes. Run `./scripts/install.sh --codex --global` or copy `.agents/skills/autoresearch/` to `~/.codex/skills/autoresearch`. Invoke via `$autoresearch` mention syntax.
 
 **Q: How do I stop the loop?**
 A: `Ctrl+C` or add `Iterations: N` to your inline config. Claude commits before verifying, so your last successful state is always in git.
@@ -778,8 +687,6 @@ MIT — see [LICENSE](LICENSE).
 
 - **[Andrej Karpathy](https://github.com/karpathy)** — for [autoresearch](https://github.com/karpathy/autoresearch)
 - **[Anthropic](https://anthropic.com)** — for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and the skills system
-- **[OpenCode](https://opencode.ai)** — for the OpenCode terminal agent
-- **[OpenAI](https://openai.com)** — for [Codex](https://developers.openai.com/codex) and the agent skills standard
 
 ---
 

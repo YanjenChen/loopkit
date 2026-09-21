@@ -11,7 +11,7 @@ It is a **protocol, not a bundled framework** — it orchestrates your project's
 - Pre-push / pre-merge gate — "did my change break anything that worked before?"
 - CI stage that must block a regression but tolerate noise (flaky tests, perf jitter)
 - Verifying a risky refactor against the behavior it was supposed to preserve
-- The final gate in a chain: `--predict --evals --fix --ship`
+- The final gate in a chain: `--predict --evals --fix`
 
 **Not for:** finding net-new bugs in code that never worked (use `:debug`), fixing a known error (use `:fix`), security review (use `:security`), or optimizing a metric (use `/autoresearch`). Regression only judges **green→red transitions**, not absolute quality.
 
@@ -145,13 +145,13 @@ Opt-in and **forward-only by default**. Before any migration runs, the DB URL mu
 
 ### Downstream (terminal gate)
 
-`handoff.json` exposes `verdict ∈ {STABLE, UNSTABLE, BASELINE_UNAVAILABLE}` — `ship` reads it for its deploy-gate.
+`handoff.json` exposes `verdict ∈ {STABLE, UNSTABLE, BASELINE_UNAVAILABLE}` for downstream consumers such as the orchestrator.
 
 ```
-/autoresearch:regression --predict --evals --fix --ship
+/autoresearch:regression --predict --evals --fix
 ```
 
-predict → gate → (Hunter on HARD) → fix(≤3) → re-gate → ship **iff** STABLE. Shipping still needs explicit deploy approval — the gate never auto-deploys.
+predict → gate → (Hunter on HARD) → fix(≤3) → re-gate. The gate never pushes or deploys — what you do with a STABLE verdict is up to you.
 
 ---
 
@@ -199,10 +199,10 @@ Base: v2.1.3
 --matrix
 ```
 
-### Gate, auto-fix, then ship
+### Gate, then auto-fix
 
 ```
-/autoresearch:regression --predict --evals --fix --ship
+/autoresearch:regression --predict --evals --fix
 Base: origin/main
 ```
 
@@ -222,7 +222,6 @@ Base: origin/main
 
 - [/autoresearch:debug](autoresearch-debug.md) — the Hunter engine regression reuses for root cause
 - [/autoresearch:fix](autoresearch-fix.md) — the repair engine behind `--fix`
-- [/autoresearch:ship](autoresearch-ship.md) — reads the regression verdict for its deploy-gate
 - [/autoresearch:predict](autoresearch-predict.md) — pre-empt likely regressions before the gate
 - [/autoresearch:evals](autoresearch-evals.md) — analyze the results TSV
 - [Chains & Combinations](chains-and-combinations.md) — multi-command pipelines

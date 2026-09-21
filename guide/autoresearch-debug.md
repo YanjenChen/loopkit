@@ -202,7 +202,7 @@ Scope: src/auth/**
 Goal: Investigate intermittent 500 errors on POST /login
 ```
 
-### debug → fix → ship
+### debug → fix
 
 ```
 /autoresearch:debug --severity high
@@ -210,8 +210,6 @@ Iterations: 20
 
 /autoresearch:fix --from-debug
 Iterations: 30
-
-/autoresearch:ship --auto
 ```
 
 ---

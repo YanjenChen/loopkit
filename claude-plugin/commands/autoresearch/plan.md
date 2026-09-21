@@ -19,7 +19,7 @@ Remaining text = goal description.
 
 AskUserQuestion (single batch):
   Q1 (Goal): "What do you want to achieve?" — open text
-  Q2 (Type): "What kind of goal?" — improve a metric, fix errors, audit security, explore edge cases, document code, ship something
+  Q2 (Type): "What kind of goal?" — improve a metric, fix errors, audit security, explore edge cases, document code
 If Goal provided → skip.
 
 ## Phase 1: Analyze Goal

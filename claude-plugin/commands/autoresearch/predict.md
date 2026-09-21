@@ -28,7 +28,7 @@ AskUserQuestion (single batch):
   Q1 (Scope): "Which files to analyze?" — suggested globs + entire codebase
   Q2 (Goal): "What should personas focus on?" — code quality, security, performance, architecture, all
   Q3 (Depth): "How deep?" — shallow (3 personas, 1 round), standard (5, 2 — recommended), deep (8, 3)
-  Q4 (Chain): "After analysis, chain to?" — debug, security, fix, ship, scenario, no chain
+  Q4 (Chain): "After analysis, chain to?" — debug, security, fix, scenario, no chain
 If all provided → skip.
 
 ## Phase 1: Reconnaissance

@@ -120,7 +120,7 @@ NOTE: Metric oscillated between 187KB and 203KB in iterations 14–17
 RECOMMENDATION: STOP — plateau reached
 Baseline: 287KB → Current: 198KB (-31.7%)
 Goal achieved: YES (target was <200KB)
-Suggested next step: /autoresearch:ship --type code-pr --auto
+Suggested next step: /autoresearch:regression
 ```
 
 ---
@@ -187,14 +187,6 @@ Machine-readable JSON with all metrics, trend data, and anomaly flags. Suitable 
 
 ## Chain Patterns
 
-### evals → ship (when goal achieved)
-
-```
-/autoresearch:evals --recommend --chain ship
-```
-
-If recommendation is STOP and goal achieved, immediately hands off to ship.
-
 ### evals after security audit
 
 ```
@@ -212,7 +204,7 @@ Iterations: 15
     claude -p "/autoresearch:evals --format json" > evals-report.json
     goal_achieved=$(jq '.goal_achieved' evals-report.json)
     if [ "$goal_achieved" = "true" ]; then
-      echo "Goal achieved — proceeding to ship"
+      echo "Goal achieved"
     fi
 ```
 

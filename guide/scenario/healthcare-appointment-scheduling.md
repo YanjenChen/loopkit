@@ -195,7 +195,7 @@ Iterations: 20
 
 ### predict → scenario (comprehensive)
 ```bash
-/autoresearch:predict --chain scenario,security,fix,ship
+/autoresearch:predict --chain scenario,security,fix
 Scope: src/appointments/**
 Goal: Ensure appointment scheduling handles all edge cases and is HIPAA-compliant before launch
 ```

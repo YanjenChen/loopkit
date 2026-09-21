@@ -1,6 +1,6 @@
 # Advanced Patterns
 
-Bounded defaults, CI/CD integration, evals checkpoints, MCP, guards, and multi-platform distribution.
+Bounded defaults, CI/CD integration, evals checkpoints, MCP, guards, and plugin sync.
 
 ---
 
@@ -70,7 +70,7 @@ Returns non-zero exit on critical findings — use directly in CI steps.
 
 ## Evals Checkpoints in CI/CD
 
-### Pattern: optimize → analyze → gate → ship
+### Pattern: optimize → analyze → gate
 
 ```yaml
 name: Weekly Optimization
@@ -104,9 +104,7 @@ jobs:
       - name: Gate on goal
         run: |
           ACHIEVED=$(jq '.goal_achieved' evals.json)
-          if [ "$ACHIEVED" = "true" ]; then
-            claude -p "/autoresearch:ship --type code-pr --auto"
-          else
+          if [ "$ACHIEVED" != "true" ]; then
             echo "Goal not reached — review evals.json"
             exit 1
           fi
@@ -133,37 +131,24 @@ jobs:
 
 ---
 
-## Multi-Platform Distribution via transform.sh
+## Plugin Sync via transform.sh
 
-`scripts/transform.sh` converts Claude Code command files for OpenCode and Codex. Run after adding or editing commands.
+`scripts/transform.sh` syncs the canonical `.claude/` source into the checked-in Claude Code plugin (`claude-plugin/`) and copies the root runtime helpers into the skill-local `scripts/` folders. Run it after adding or editing commands, references, hooks, or the root helpers. It takes no flags.
 
 ```bash
-# Transform all commands for OpenCode + Codex
 ./scripts/transform.sh
-
-# Transform specific command
-./scripts/transform.sh autoresearch-debug
 ```
 
 What it produces:
 
-| Source | Output (OpenCode) | Output (Codex) |
-|--------|-------------------|----------------|
-| `skills/autoresearch.md` | `opencode/autoresearch.md` | `codex/autoresearch.sh` |
-| `skills/autoresearch-debug.md` | `opencode/autoresearch_debug.md` | `codex/autoresearch_debug.sh` |
-| `skills/autoresearch-evals.md` | `opencode/autoresearch_evals.md` | `codex/autoresearch_evals.sh` |
+| Source | Output |
+|--------|--------|
+| `.claude/commands/autoresearch.md` + `.claude/commands/autoresearch/*.md` | `claude-plugin/commands/` |
+| `.claude/skills/autoresearch/` | `claude-plugin/skills/autoresearch/` |
+| `.claude/hooks/autoresearch/` | `claude-plugin/hooks/` |
+| `scripts/orchestrate.sh` + `scripts/score-regression.sh` | `.claude/skills/autoresearch/scripts/` and `claude-plugin/skills/autoresearch/scripts/` |
 
-**Transform rules:**
-- `/autoresearch:cmd` → `/autoresearch_cmd` (OpenCode) or `$autoresearch cmd` (Codex)
-- Strips Claude Code-specific frontmatter
-- Converts chain syntax for each platform
-
-Run in CI to keep all platforms in sync:
-
-```yaml
-- name: Sync platforms
-  run: ./scripts/transform.sh
-```
+Run `bash tests/test-maintenance.sh` locally to confirm the transform is deterministic (no generated drift).
 
 ---
 
@@ -297,10 +282,8 @@ Compare `improvement_pct` and `plateau_start` to determine which session was mor
 | Fail on critical vuln | `security` | `--fail-on critical` |
 | Only audit changed files | `security` | `--diff` |
 | Analyze results + gate | `evals` | `--format json --recommend` |
-| Auto-PR after optimization | `ship` | `--type code-pr --auto` |
 | Overnight optimization | `autoresearch` | `Iterations: N --evals-interval M` |
 | Requirements re-probe | `probe` | `--mode autonomous` |
-| Post-deploy health | `ship` | `--monitor N` |
 
 ---
 
@@ -309,4 +292,3 @@ Compare `improvement_pct` and `plateau_start` to determine which session was mor
 - [chains-and-combinations.md](chains-and-combinations.md) — full pipeline examples
 - [examples-by-domain.md](examples-by-domain.md) — domain-specific CI/CD patterns
 - [autoresearch-evals.md](autoresearch-evals.md) — evals output format and JSON schema
-- [autoresearch-ship.md](autoresearch-ship.md) — ship types and monitoring

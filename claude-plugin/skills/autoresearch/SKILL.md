@@ -35,7 +35,6 @@ Print a banner on every invocation: `[autoresearch] mode: classic | orchestrator
 | `/autoresearch:debug` | Hunt bugs: hypothesize → test → falsify → repeat | 15 |
 | `/autoresearch:fix` | Crush errors one-by-one until zero remain | 20 |
 | `/autoresearch:security` | STRIDE + OWASP audit with red-team personas | 15 |
-| `/autoresearch:ship` | Ship through 8 phases: checklist → dry-run → deploy → verify | N/A |
 | `/autoresearch:scenario` | Generate edge cases across 12 dimensions | 20 |
 | `/autoresearch:predict` | 5 expert personas debate before implementation | N/A |
 | `/autoresearch:learn` | Scout codebase → generate docs or wiki → validate → fix loop | 10 |
@@ -67,8 +66,8 @@ Activated when a plain-language goal is given without `Metric:`/`Verify:`. Class
 Resolve every `scripts/...` path below relative to this installed skill directory, never relative to the caller's working directory.
 
 **Two modes based on archetype:**
-- **Orchestration loop** — predicate-bearing archetypes (ship-ready, optimize-metric, fix-broken, harden, build-feature, explore). Goal has a mechanical Success predicate; the loop runs until that predicate is met.
-- **Single-pass dispatch** — subjective/terminal archetypes (document, what-to-build, decide-design). Routes once to the fitting subcommand (learn / improve / reason), lets it self-terminate, then reports. No loop, no Plateau, no ship gate.
+- **Orchestration loop** — predicate-bearing archetypes (optimize-metric, fix-broken, harden, build-feature, explore). Goal has a mechanical Success predicate; the loop runs until that predicate is met.
+- **Single-pass dispatch** — subjective/terminal archetypes (document, what-to-build, decide-design). Routes once to the fitting subcommand (learn / improve / reason), lets it self-terminate, then reports. No loop, no Plateau.
 
 ### Orchestration Loop Steps
 
@@ -76,7 +75,7 @@ Backed by `scripts/orchestrate.sh` (deterministic seam — all routing logic liv
 
 1. **Classify** — `scripts/orchestrate.sh classify "<goal>"` → archetype label + mode.
 2. **Derive predicate** — reuse `plan` logic to produce a concrete Success predicate: exact shell command + expected output. For `optimize-metric`, run the full plan/wizard derivation internally.
-3. **Confirm** — ONE `AskUserQuestion` showing: archetype, mode, concrete predicate (command + expected output), terminal choice (stop-at-verified vs proceed-to-ship). Misclassifications are caught here, not mid-run.
+3. **Confirm** — ONE `AskUserQuestion` showing: archetype, mode, concrete predicate (command + expected output). Misclassifications are caught here, not mid-run.
 4. **Round-0 dry-run** — prove the predicate command runs and returns a value; safety-screen every derived command via `screen-cmd`; print projected cycle budget. Stop here if `--dry-run`.
 5. **Loop** until predicate satisfied:
    a. Assess state via cheap signals (last `handoff.json`, regression verdict, error count) + affected-test verify.
@@ -86,22 +85,22 @@ Backed by `scripts/orchestrate.sh` (deterministic seam — all routing logic liv
    e. Fold hop's `handoff.json` into `orchestrator-state.json`.
    f. `scripts/orchestrate.sh units` → recompute **Units remaining**.
 6. **Stop conditions** (checked after each hop):
-   - Predicate met → ship gate (only if ship is in the pipeline) else `CONVERGED`.
+   - Predicate met → `CONVERGED`.
    - `scripts/orchestrate.sh plateau orchestrator-state.json` → true → stop + report `PLATEAU`.
    - Cycles > ceiling (default 50, override `--max-cycles N`) → stop + report `CEILING`.
    - Hop outcome `blocked`/`failed` with no alternative route → checkpoint + stop + report `BLOCKED`.
 
 ### Orchestrator State
 
-`orchestrator-state.json` — orchestrator-owned, additive. Tracks: goal, archetype, predicate, terminal-choice, `units_remaining` history, cycle count, per-hop pipeline log with outcomes, current incumbent. Each hop's `handoff.json` is unchanged (single-hop bridge); the orchestrator reads it and folds it in. Two clearly-owned state objects, no overlap.
+`orchestrator-state.json` — orchestrator-owned, additive. Tracks: goal, archetype, predicate, `units_remaining` history, cycle count, per-hop pipeline log with outcomes, current incumbent. Each hop's `handoff.json` is unchanged (single-hop bridge); the orchestrator reads it and folds it in. Two clearly-owned state objects, no overlap.
 
 ### Orchestrator Safety Invariants
 
-- **Never auto-approve ship/deploy/push.** The orchestrator never passes `--auto` to `ship`; deploy always requires explicit user approval.
+- **Never push, publish, or deploy.** The orchestrator stops at a verified result; any release is a manual user action.
 - **Data-migration behind anchored DB-URL allowlist.** Reuses regression's allowlist — host must be `localhost`/`127.0.0.1`/container hostname, or database name carries `_test`/`_ci` suffix. Bare substring match does not qualify. Anything else refused.
 - **screen-cmd on every derived command** — run before the loop starts AND on every command read from a persisted state file on resume. Persisted commands are never trusted; resume re-screens the pinned predicate via `screen-state-predicate` and refuses on `refuse`.
 - **No un-screened commands mid-loop.** The autonomous loop cannot introduce new shell commands that bypass `screen-cmd`.
 - **Predicate pinned, not re-derived.** Round-0 writes the derived Success predicate verbatim into `orchestrator-state.json`; every cycle and every resume reuses that exact string so "done" is reproducible across runs.
 - **Validate the ledger before routing.** `validate-state` gates `orchestrator-state.json` (required fields + coarse types); a malformed ledger is not trusted to route from.
-- **Independent verify before convergence.** High-impact changes accepted on the working signal set `pending_verify`; `next-hop` routes to a `verify` hop (held-out / adversarial check) before `DONE` or ship. The verify hop never auto-approves ship.
+- **Independent verify before convergence.** High-impact changes accepted on the working signal set `pending_verify`; `next-hop` routes to a `verify` hop (held-out / adversarial check) before `DONE`.
 - **Unknown-units cycles excluded from Plateau counter.** A cycle where `units` returns `unknown` (e.g. runner crash) is not counted as zero-progress; repeated `unknown` routes to `BLOCKED`.

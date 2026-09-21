@@ -2,7 +2,7 @@
 
 ## Summary
 
-Claude Autoresearch is a multi-platform skill/plugin for Claude Code, OpenCode, and Codex that turns the host into an autonomous improvement engine. Inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch), it generalizes the constraint-driven autonomous iteration pattern to any domain — code, content, marketing, sales, security, and more.
+Claude Autoresearch is a skill/plugin for Claude Code that turns it into an autonomous improvement engine. Inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch), it generalizes the constraint-driven autonomous iteration pattern to any domain — code, content, marketing, sales, security, and more.
 
 **Core idea:** Set a goal with a mechanical metric, define scope, and let Claude autonomously iterate — modify, verify, keep/discard, repeat — until the goal is achieved or the iteration limit is reached.
 
@@ -16,7 +16,7 @@ Claude Autoresearch is a multi-platform skill/plugin for Claude Code, OpenCode, 
 | **License** | MIT |
 | **Author** | [Udit Goenka](https://github.com/uditgoenka) |
 | **Repository** | [github.com/uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch) |
-| **Platforms** | Claude Code, OpenCode, Codex |
+| **Platforms** | Claude Code |
 
 ## Problem Statement
 
@@ -26,15 +26,14 @@ Autoresearch automates this entire loop with mechanical verification, automatic 
 
 ## Key Features
 
-- **14 subcommands** covering the full development lifecycle (see table below)
+- **13 commands** (bare `/autoresearch` plus 12 subcommands) covering the full development lifecycle (see table below)
 - **Bounded by default** — every looping command has a sane default iteration count; opt into unbounded with `Iterations: unlimited`
 - **Guard system** — optional safety net that reverts commits when quality regresses
 - **Git as memory** — every experiment committed; agent reads history to avoid repeating failures
-- **Interactive setup** — batched AskUserQuestion in Claude, request_user_input in Codex, and question in OpenCode when invoked without full config
+- **Interactive setup** — batched AskUserQuestion when invoked without full config
 - **Domain-agnostic** — works for any task with a measurable shell-accessible metric
 - **Chain integration** — pipe output between subcommands via `handoff.json`
 - **Evals** — built-in trend and plateau analysis for any `*-results.tsv` file
-- **Multi-platform** — Claude Code, OpenCode, Codex via `scripts/transform.sh`
 - **95% token reduction** — thin SKILL.md routing table loads only the needed command file (~5–8K tokens vs ~100K in v2.0.x)
 
 ## Subcommands
@@ -46,7 +45,6 @@ Autoresearch automates this entire loop with mechanical verification, automatic 
 | `/autoresearch:debug` | Scientific method bug hunting | 15 |
 | `/autoresearch:fix` | Iterative error-count reduction | 20 |
 | `/autoresearch:security` | STRIDE + OWASP red-team audit | 15 |
-| `/autoresearch:ship` | Universal 8-phase shipping workflow | N/A |
 | `/autoresearch:scenario` | 12-dimension edge case generation | 20 |
 | `/autoresearch:predict` | 5-persona expert debate before implementation | N/A |
 | `/autoresearch:learn` | Autonomous codebase documentation engine | 10 |

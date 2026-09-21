@@ -9,7 +9,6 @@ This project is entirely **markdown-based** with shell script helpers. There is 
 - **kebab-case** for all file names: `security-checklist.md`, `transform.sh`
 - Names should be descriptive enough that an LLM understands purpose without reading content
 - Command files match their command name: `debug.md` for `/autoresearch:debug`
-- OpenCode distribution uses underscores: `autoresearch_debug.md`
 
 ## SKILL.md Pattern (v2.2.2)
 
@@ -28,7 +27,7 @@ Each command file (`.claude/commands/autoresearch/*.md`) is **self-contained**:
 - YAML frontmatter: `name`, `description`, `argument-hint`
 - `EXECUTE IMMEDIATELY` header — no deliberation before reading
 - Parse Arguments section — extract all flags inline
-- Setup section — AskUserQuestion batched call in Claude, request_user_input in Codex, and question in OpenCode
+- Setup section — AskUserQuestion batched call
 - Precondition checks
 - Full loop or workflow protocol with numbered phases
 - TSV logging format
@@ -41,7 +40,7 @@ Target: 94–120 lines per command file. Never split protocol across files unles
 Reference files (`.claude/skills/autoresearch/references/`) are for **shared content only**:
 - Loaded explicitly by the command file that needs them
 - Must be referenced by 3+ commands to justify existence as a reference
-- Current 3 references: `predict-personas.md`, `reason-judge-protocol.md`, `security-checklist.md`
+- Current 4 references: `orchestrator-routing.md`, `predict-personas.md`, `reason-judge-protocol.md`, `security-checklist.md`
 
 Do not create per-command workflow reference files. That was the v2.0.x pattern (13 files). v2.2.x embeds protocol directly.
 
@@ -61,28 +60,28 @@ The `# metric_direction` comment on line 1 enables the evals command to auto-det
 
 ## Version Management
 
-- Version tracked in **two** plugin.json files:
+- Version tracked in the plugin manifests:
   - `claude-plugin/.claude-plugin/plugin.json` — Claude Code canonical manifest (e.g. `2.2.2`)
-  - `plugins/autoresearch/.codex-plugin/plugin.json` — Codex manifest convention (e.g. `2.2.2-codex.0`)
+  - `.claude-plugin/marketplace.json` — marketplace entry (top-level and plugin `version`)
 - Version also appears in SKILL.md frontmatter and README badges
-- `scripts/release.sh` automates version bumping across all touchpoints
+- There is no release script; bump every touchpoint together by hand
 
 ## Shell Script Standards
 
 - Shebang: `#!/usr/bin/env bash`
 - Quote all variables: `"$VAR"` not `$VAR`
 - `set -euo pipefail` for strict error handling
-- Scripts live in `scripts/` — no scripts in plugin directories
-- `scripts/transform.sh` is the single source for all platform distributions and bundled runtime helpers; do not maintain separate sync scripts
+- Scripts live in `scripts/`; the skill-local `scripts/` copies of `orchestrate.sh` and `score-regression.sh` are generated, never edited by hand
+- `scripts/transform.sh` is the single sync step for `claude-plugin/` and the skill-local runtime helpers; do not maintain separate sync scripts
 
-## Platform Distribution
+## Plugin Distribution
 
-Source of truth is `.claude/`. To update OpenCode, Codex, or the checked-in Claude plugin distribution:
-1. Edit canonical files in `.claude/commands/` or `.claude/skills/`
-2. Run `scripts/transform.sh` to regenerate platform distributions and bundled runtime helpers
+Source of truth is `.claude/`. To update the checked-in Claude Code plugin (`claude-plugin/`):
+1. Edit canonical files in `.claude/commands/`, `.claude/skills/`, or `.claude/hooks/autoresearch/`
+2. Run `scripts/transform.sh` to regenerate `claude-plugin/` and the skill-local runtime helpers
 3. Commit all generated files together
 
-Do not hand-edit `.opencode/` or `plugins/autoresearch/` files directly.
+Do not hand-edit `claude-plugin/` files directly.
 
 ## Documentation Standards
 

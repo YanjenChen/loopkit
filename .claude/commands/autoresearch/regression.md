@@ -6,7 +6,7 @@ argument-hint: "[Base: <ref>] [Scope: <glob>] [--select auto|full|affected] [--s
 
 EXECUTE IMMEDIATELY.
 
-A regression is a **green→red transition ONLY**. The gate orchestrates the project's OWN test/bench/snapshot/migrate commands (it is a protocol, not a bundled framework), captures baseline behavior in an isolated git worktree, re-runs the candidate, and reports a tiered ship/no-ship verdict.
+A regression is a **green→red transition ONLY**. The gate orchestrates the project's OWN test/bench/snapshot/migrate commands (it is a protocol, not a bundled framework), captures baseline behavior in an isolated git worktree, re-runs the candidate, and reports a tiered STABLE/UNSTABLE verdict.
 
 ## Parse Arguments
 
@@ -99,12 +99,12 @@ Interval = floor(max_runs / 3), min 1 (fixed 10 if unbounded); override `--evals
 ## Chain Handoff
 
 Write `handoff.json` to the output directory: version "2.1.0", source "regression", timestamp,
-`status` ∈ family enum {COMPLETE, CONVERGED, SATURATED, BOUNDED, USER_INTERRUPT, ERROR} (backward-compat with evals/ship consumers),
-`verdict` ∈ {STABLE, UNSTABLE, BASELINE_UNAVAILABLE} + `regression_state` ∈ {REGRESSION_FOUND, REGRESSION_FIXED, none} — `ship` reads `verdict` for the deploy-gate,
+`status` ∈ family enum {COMPLETE, CONVERGED, SATURATED, BOUNDED, USER_INTERRUPT, ERROR} (backward-compat with evals consumers),
+`verdict` ∈ {STABLE, UNSTABLE, BASELINE_UNAVAILABLE} + `regression_state` ∈ {REGRESSION_FOUND, REGRESSION_FIXED, none},
 `results_tsv` path, `findings` = blocking regressions (dim, severity, file_line, classification), `config`{base, scope, dims, axes, verdict-math}.
 
-If `--fix` → chain to fix automatically. Invoke next `--chain` target in order; propagate `--evals`. Canonical combo: `--predict --evals --fix --ship` = predict → gate → (hunter on HARD) → fix(≤3) → re-gate → ship iff STABLE (deploy still needs explicit approval).
+If `--fix` → chain to fix automatically. Invoke next `--chain` target in order; propagate `--evals`. Canonical combo: `--predict --evals --fix` = predict → gate → (hunter on HARD) → fix(≤3) → re-gate.
 
 ## Safety
 
-Verify-command screen (no `rm -rf` / `curl|sh`); worktree cleanup + prune on crash; data-migration refuses any non-allowlisted DB URL; probe auto-skips non-interactively; chained `ship` never auto-deploys.
+Verify-command screen (no `rm -rf` / `curl|sh`); worktree cleanup + prune on crash; data-migration refuses any non-allowlisted DB URL; probe auto-skips non-interactively.

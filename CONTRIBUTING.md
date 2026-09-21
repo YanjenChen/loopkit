@@ -4,7 +4,7 @@ Whether you're fixing a typo, adding examples, creating a new sub-command, or im
 
 ## Quick Start
 
-Autoresearch is Markdown files that Claude Code, OpenCode, and Codex discover from `skills/` and `commands/` directories. No build step, no compilation — edit a `.md` file, invoke the skill, see your changes.
+Autoresearch is Markdown files that Claude Code discovers from `skills/` and `commands/` directories. No build step, no compilation — edit a `.md` file, invoke the skill, see your changes.
 
 ```bash
 # 1. Clone the repo
@@ -12,9 +12,8 @@ git clone https://github.com/uditgoenka/autoresearch.git
 cd autoresearch
 
 # 2. Install via guided installer
-./scripts/install.sh --claude --global   # Claude Code
-./scripts/install.sh --opencode --global # OpenCode
-./scripts/install.sh --codex --global    # Codex
+./scripts/install.sh --global   # all projects (~/.claude by default)
+./scripts/install.sh --local    # current project only (./.claude)
 
 # 3. Or symlink for live editing (recommended for development)
 ln -s $(pwd)/.claude/skills/autoresearch ~/.claude/skills/autoresearch
@@ -22,14 +21,12 @@ ln -s $(pwd)/.claude/commands/autoresearch ~/.claude/commands/autoresearch
 ln -s $(pwd)/.claude/commands/autoresearch.md ~/.claude/commands/autoresearch.md
 ```
 
-### Multi-Platform Sync
+### Plugin Sync
 
-The canonical source is `.claude/`. After making changes, run the transform to sync all platforms:
+The canonical source is `.claude/`. After making changes, run the transform to sync the checked-in Claude Code plugin (`claude-plugin/`) and the skill-local runtime helpers:
 
 ```bash
-./scripts/transform.sh              # sync to OpenCode + Codex
-./scripts/transform.sh --opencode   # OpenCode only
-./scripts/transform.sh --codex      # Codex only
+./scripts/transform.sh
 ```
 
 ## Repository Structure (v2.2.2)
@@ -42,15 +39,15 @@ autoresearch/
 │   │   └── references/                            ← Shared routing and review references
 │   └── commands/
 │       ├── autoresearch.md                        ← Core loop (self-contained, ~110 lines)
-│       └── autoresearch/                          ← 13 subcommand files (self-contained)
-├── .opencode/                                     ← OpenCode port (generated via transform.sh)
-├── .agents/ + plugins/                            ← Codex port (generated via transform.sh)
+│       └── autoresearch/                          ← 12 subcommand files (self-contained)
 ├── claude-plugin/                                 ← Distribution package (Claude Code plugin install)
+├── .claude-plugin/marketplace.json                ← Plugin marketplace entry
 ├── scripts/
-│   ├── install.sh                                 ← Guided installer (3 platforms)
-│   ├── transform.sh                               ← .claude/ → .opencode/ + .agents/ sync
-│   ├── release.sh                                 ← Release automation
-│   └── release.md                                 ← Release checklist
+│   ├── install.sh                                 ← Guided installer (Claude Code)
+│   ├── transform.sh                               ← .claude/ → claude-plugin/ sync + skill-local helpers
+│   ├── orchestrate.sh                             ← Orchestrator routing seam (canonical copy)
+│   └── score-regression.sh                        ← Regression scoring backend (canonical copy)
+├── tests/                                         ← Shell test suites + fixtures
 ├── guide/                                         ← Guides — one per command + advanced patterns
 ├── docs/                                          ← Project docs (architecture, changelog, standards)
 ├── COMPARISON.md                                  ← Karpathy vs Claude Autoresearch
@@ -67,8 +64,8 @@ autoresearch/
 | `references/security-checklist.md` | STRIDE + OWASP checklist (loaded by security command) | Adding security checks |
 | `references/predict-personas.md` | 5 expert personas (loaded by predict command) | Adding/modifying personas |
 | `references/reason-judge-protocol.md` | Adversarial refinement protocol (loaded by reason command) | Changing judge/critic behavior |
-| `scripts/transform.sh` | Canonical transform (.claude/ → .opencode/ + .agents/ + claude-plugin/) | Adding new commands, reference files, or generated helper updates |
-| `claude-plugin/` | Distribution package — synced from .claude/ during release | Don't edit directly — edit .claude/ |
+| `scripts/transform.sh` | Canonical transform (.claude/ → claude-plugin/, plus skill-local copies of the runtime helpers) | Adding new commands, reference files, or generated helper updates |
+| `claude-plugin/` | Distribution package — synced from .claude/ by `scripts/transform.sh` | Don't edit directly — edit .claude/ |
 
 ## What to Contribute
 
@@ -114,7 +111,7 @@ Only create a reference in `references/` if shared by multiple commands. Single-
 ### 4. Run transform + update docs
 
 ```bash
-./scripts/transform.sh   # sync to OpenCode + Codex
+./scripts/transform.sh   # sync claude-plugin/ + skill-local runtime helpers
 ```
 
 Update: README.md (commands table), guide/ (new guide file), COMPARISON.md (subcommand count).
@@ -136,12 +133,13 @@ Update: README.md (commands table), guide/ (new guide file), COMPARISON.md (subc
 1. **One PR = one feature.** Don't bundle unrelated changes.
 2. **Branch from `master`.** Target `master` as base.
 3. **Run `scripts/transform.sh`** after any changes to `.claude/`.
-4. **Update docs** — README, guide, COMPARISON as needed.
-5. **Don't bump the version.** Maintainers handle via `scripts/release.sh`.
+4. **Run the test suites locally** — there is no CI (see Testing).
+5. **Update docs** — README, guide, COMPARISON as needed.
+6. **Don't bump the version.** Maintainers handle versioning.
 
 ## Testing
 
-The repo includes shell-based verification for the generated distributions and hook/runtime contracts:
+Test changes by hand in a real Claude Code session:
 
 1. Symlink your working tree (see Quick Start)
 2. Open Claude Code in a real project
@@ -149,21 +147,13 @@ The repo includes shell-based verification for the generated distributions and h
 4. Verify behavior matches your changes
 5. Try edge cases — wrong metric? 0 files in scope? Guard always fails?
 
-For maintainer workflows, the canonical checks are:
+The repo also includes shell-based test suites for the generated plugin and the hook/runtime contracts. There is no CI, so run them locally:
 
-- `bash scripts/transform.sh` — regenerate platform distributions and bundled runtime helpers
-- `bash tests/test-maintenance.sh` — transform idempotence and release-prep guards
-- `bash tests/test-hooks.sh` — Claude hook contracts and fail-open behavior
-
-## Release Process
-
-Maintainers use `scripts/release.sh`. See `scripts/release.md` for details.
-
-```bash
-./scripts/release.sh 2.2.2 --title "Release 2.2.2"
-```
-
-Contributors don't need to bump versions.
+- `bash scripts/transform.sh` — regenerate `claude-plugin/` and the skill-local runtime helpers
+- `bash tests/test-hooks.sh` — hook contracts and fail-open behavior
+- `bash tests/test-orchestrator.sh` — orchestrator routing seam (`scripts/orchestrate.sh`)
+- `bash tests/test-regression.sh` — regression scoring (`scripts/score-regression.sh`) and spec contract
+- `bash tests/test-maintenance.sh` — transform determinism (no generated drift)
 
 ## Getting Help
 
