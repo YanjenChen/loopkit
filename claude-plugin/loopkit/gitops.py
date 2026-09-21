@@ -5,6 +5,7 @@ code during framework operations.
 """
 
 import os
+import shutil
 import subprocess
 
 from .util import LoopkitError
@@ -267,13 +268,22 @@ def merge_into(worktree, other):
 
 
 def snapshot_tree(worktree, index_path, exclude=()):
-    """Write the worktree's current content (tracked and untracked, not ignored) as a tree."""
+    """Write the worktree's current content (tracked and untracked, not ignored) as a tree.
+
+    A temporary index keeps the worktree's own index untouched. It is seeded
+    from the worktree's index when there is one, so unchanged files are not
+    rehashed.
+    """
     env = {'GIT_INDEX_FILE': index_path}
     try:
         os.unlink(index_path)
     except OSError:
         pass
-    run(['read-tree', 'HEAD'], worktree, env=env)
+    real_index = os.path.join(git_dir(worktree), 'index')
+    if os.path.isfile(real_index):
+        shutil.copyfile(real_index, index_path)
+    else:
+        run(['read-tree', 'HEAD'], worktree, env=env)
     run(['add', '-A', '--', '.'], worktree, env=env)
     # Naming ignored paths in an add pathspec is an error, so drop framework files afterwards:
     # restore HEAD's version when HEAD tracks one, otherwise remove it from the index.
