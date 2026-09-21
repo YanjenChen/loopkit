@@ -706,7 +706,19 @@ class Run(object):
             say('ERROR: c000 must pass every constraint and produce valid objectives; see %s' %
                 report.log_path(self.paths, 'c000'))
             say('       fix the score script or config, then remove this run (loopkit run remove %s --yes) and re-run init' % self.name)
+        else:
+            self._print_next()
         return True
+
+    def _print_next(self):
+        example = self.config['objectives'][0]
+        below = '低於' if example['direction'] == 'minimize' else '高於'
+        say('NEXT')
+        say('  1. Open the agent worktree in a new VS Code window:  code %s' % self.paths.agent)
+        say('  2. Start Claude Code there in auto mode and paste one prompt (fill in the stop conditions):')
+        say('     /goal 重複執行 /loopkit:iter（停止條件：<例如：最多 20 輪或 %s %s <目標值>>，由 loopkit 判斷），'
+            '直到輸出出現 LOOPKIT-STOP。單一輪 REVERTED 或 FAILED 不代表目標不可能達成。' % (example['name'], below))
+        say('     /loop /loopkit:iter（停止條件：<例如：最多 50 輪>，由 loopkit 判斷；輸出出現 LOOPKIT-STOP 時停止 loop）')
 
     def wait(self, max_wait):
         deadline = time.time() + max_wait
@@ -732,6 +744,8 @@ class Run(object):
     def summary(self, full=False):
         records = self.records()
         say('RUN %s | %s' % (self.name, self.paths.dir))
+        if os.path.isfile(self.paths.knowledge):
+            say('KNOWLEDGE %s (describes c000)' % self.paths.knowledge)
         stopped = self._integrity_stopped(records)
         if stopped:
             say('STOPPED BY %s' % stopped)

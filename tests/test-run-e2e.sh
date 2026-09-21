@@ -62,12 +62,16 @@ git -C "$SUB" add -A && git -C "$SUB" commit -qm "sublib"
 REPO="$TMP/placer"
 mkdir -p "$REPO/src" "$REPO/bench" "$REPO/.loopkit"
 cat > "$REPO/src/placer.py" <<'EOF'
-"""A fake placer: cell i goes to x = i * spread; sleep simulates work."""
+"""A fake placer: cell i goes to x = i * spread; sleep simulates work.
+
+It reports its work as a deterministic runtime, so the test does not depend on machine load.
+"""
 import json, os, sys, time
 
 params = json.load(open(os.path.join(os.path.dirname(__file__), 'params.json')))
 time.sleep(params['sleep'])
 with open(sys.argv[1], 'w') as out:
+    out.write('runtime %r\n' % params['sleep'])
     for i in range(10):
         out.write('c%d %r\n' % (i, i * params['spread']))
 EOF
@@ -82,7 +86,7 @@ git -C "$REPO" add -A && git -C "$REPO" commit -qm "toy placer"
 
 cat > "$REPO/.loopkit/score.py" <<'EOF'
 """Score the fake placer: recompute hpwl and legality from its output."""
-import json, os, subprocess, sys, time
+import json, os, subprocess, sys
 
 eval_dir = os.environ['LOOPKIT_EVAL_DIR']
 build = os.environ['LOOPKIT_BUILD_DIR']
@@ -93,9 +97,7 @@ def write(data):
     with open(result_path, 'w') as f:
         json.dump(data, f)
 
-start = time.time()
 proc = subprocess.run([sys.executable, 'src/placer.py', placement])
-runtime = time.time() - start
 if proc.returncode != 0:
     write({'schema': 1, 'status': 'fail', 'reason': 'placer_crashed: exit %d' % proc.returncode})
     sys.exit(0)
@@ -103,6 +105,7 @@ x = {}
 for line in open(placement):
     name, pos = line.split()
     x[name] = float(pos)
+runtime = x.pop('runtime')
 hpwl = 0.0
 for line in open(os.path.join(eval_dir, 'bench', 'nets.txt')):
     a, b = line.split()

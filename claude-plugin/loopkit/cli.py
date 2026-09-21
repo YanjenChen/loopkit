@@ -92,8 +92,13 @@ def build_parser():
     sub = parser.add_subparsers(dest='command', metavar='<command>')
     sub.required = True
 
+    def run_option(p):
+        # Also accepted after the subcommand, so `/loopkit:<cmd> $ARGUMENTS` can pass it through.
+        p.add_argument('--run', default=argparse.SUPPRESS, help='run name')
+        return p
+
     def add(name, func, help_text, **kwargs):
-        p = sub.add_parser(name, help=help_text, **kwargs)
+        p = run_option(sub.add_parser(name, help=help_text, **kwargs))
         p.set_defaults(func=func)
         return p
 
@@ -134,7 +139,7 @@ def build_parser():
     batch_p = sub.add_parser('batch', help='register the stop conditions of this /goal or /loop')
     batch_sub = batch_p.add_subparsers(dest='batch_command', metavar='<batch-command>')
     batch_sub.required = True
-    p = batch_sub.add_parser('start', help='head of every iteration: integrity, batch, stop check')
+    p = run_option(batch_sub.add_parser('start', help='head of every iteration: integrity, batch, stop check'))
     p.add_argument('--text', required=True, help='the /goal or /loop prompt, verbatim')
     p.add_argument('--conditions', required=True, help='structured stop conditions as JSON')
     p.set_defaults(func=lambda a: session_run(a).batch_start(a.text, a.conditions))

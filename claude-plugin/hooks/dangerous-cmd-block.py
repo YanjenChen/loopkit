@@ -11,7 +11,9 @@ Inside a run session (see hook_utils.run_context):
   .loopkit/ and .claude/ are blocked;
 - commands that cannot be parsed, Bash with run_in_background, and the
   user-only loopkit commands (request-eval, promote, adopt, run, shim) are
-  blocked.
+  blocked;
+- loopkit's analyst, decider and critic subagents are read-only: when the hook
+  input names one of them, only read-only commands may run.
 Outside a run session this hook does nothing. It fails open on internal errors.
 """
 
@@ -244,6 +246,40 @@ class Guard(object):
 
 
 EDIT_TOOLS = {'Edit', 'MultiEdit', 'Write', 'NotebookEdit'}
+READ_ONLY_AGENTS = ('analyst', 'analyst-web', 'decider', 'critic')
+_LOOPKIT_READ = {'summary', 'show', 'lineage', 'diff', 'status', 'check', 'export'}
+
+
+def is_read_only_agent(agent_type):
+    if not isinstance(agent_type, str):
+        return False
+    plugin, _, name = agent_type.rpartition(':')
+    return plugin == 'loopkit' and name in READ_ONLY_AGENTS
+
+
+def read_only_problem(command):
+    """Why a read-only subagent may not run command, or None."""
+    for words in shell_segments(command):
+        executable = js_basename(words[0])
+        args = words[1:]
+        for index, word in enumerate(words[:-1]):
+            if word in _REDIRECTS and words[index + 1] != '/dev/null':
+                return 'a read-only subagent cannot redirect output to %s' % words[index + 1]
+        if executable in ('cd', 'pushd', 'popd'):
+            continue
+        if executable == 'git':
+            problem = git_problem(words)
+            if problem:
+                return problem
+            continue
+        if executable == 'loopkit':
+            sub = next((a for a in args if not a.startswith('-')), None)
+            if sub not in _LOOPKIT_READ or '--ack' in args:
+                return 'loopkit %s is not a read-only command' % sub
+            continue
+        if not is_read_only(executable, args):
+            return '%s is not a read-only command; analysts, the decider and the critic only read' % executable
+    return None
 
 
 def main():
@@ -266,7 +302,10 @@ def main():
     guard = Guard(run_paths)
     hint = ' Work inside the agent worktree %s; use loopkit commands for git and run data.' % guard.agent
 
+    read_only_agent = is_read_only_agent(prop(stdin, 'agent_type'))
     if tool_name in EDIT_TOOLS:
+        if read_only_agent:
+            block('BLOCKED (loopkit run): %s is read-only and cannot use %s.' % (prop(stdin, 'agent_type'), tool_name))
         path = prop(tool_input, 'file_path') or prop(tool_input, 'notebook_path')
         if isinstance(path, str) and path and guard.is_protected(path, cwd):
             log(HOOK_NAME, {'action': 'block', 'tool': tool_name, 'category': 'protected-path'})
@@ -286,6 +325,8 @@ def main():
         log(HOOK_NAME, {'action': 'block', 'matched': label})
         block('BLOCKED (loopkit run): destructive command (%s).%s' % (label, hint))
     problem = guard.bash_problem(command, cwd)
+    if not problem and read_only_agent:
+        problem = read_only_problem(command)
     if problem:
         log(HOOK_NAME, {'action': 'block', 'category': 'run-guard'})
         block('BLOCKED (loopkit run): %s.%s' % (problem, hint))

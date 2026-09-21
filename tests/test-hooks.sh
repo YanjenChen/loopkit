@@ -408,6 +408,23 @@ assert_exit 0 "dangerous-cmd-block: relative Edit inside the agent worktree is a
 run_hook "dangerous-cmd-block.py" '{"tool_name":"Read","tool_input":{"file_path":"foo"}}'
 assert_exit 0 "dangerous-cmd-block: other tools pass through"
 
+# loopkit's analysis subagents are read-only.
+agent_json() { python3 -c 'import json, sys; print(json.dumps({"tool_name": sys.argv[1], "agent_type": sys.argv[2], "tool_input": {"command": sys.argv[3], "file_path": sys.argv[3]}}))' "$1" "$2" "$3"; }
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst "touch src/new.py")"
+assert_exit 2 "dangerous-cmd-block: an analyst cannot write inside the agent worktree"
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:decider "grep -rn foo src | head")"
+assert_exit 0 "dangerous-cmd-block: the decider can search"
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst-web "loopkit lineage c000")"
+assert_exit 0 "dangerous-cmd-block: an analyst can query loopkit"
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:critic "loopkit export --ack 5")"
+assert_exit 2 "dangerous-cmd-block: the critic cannot ack monitor exports"
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash loopkit:analyst "python3 profile.py > out.txt")"
+assert_exit 2 "dangerous-cmd-block: an analyst cannot write files through redirects"
+run_hook "dangerous-cmd-block.py" "$(agent_json Write loopkit:analyst "src/app.py")"
+assert_exit 2 "dangerous-cmd-block: an analyst cannot use Write"
+run_hook "dangerous-cmd-block.py" "$(agent_json Bash general-purpose "touch src/new.py")"
+assert_exit 0 "dangerous-cmd-block: other subagents follow the normal run rules"
+
 LOOPKIT_DISABLE_DANGEROUS_CMD_BLOCK=1 run_hook "dangerous-cmd-block.py" "$(bash_json "git push --force")"
 assert_exit 0 "dangerous-cmd-block: disabled via env var"
 

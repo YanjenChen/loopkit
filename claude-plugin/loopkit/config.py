@@ -159,6 +159,11 @@ def validate(config):
                         errors.append('%s.focus: required string' % where)
                     if 'web' in analyst and not isinstance(analyst['web'], bool):
                         errors.append('%s.web: must be true or false' % where)
+                    for key in ('questions', 'evidence', 'red_flags'):
+                        value = analyst.get(key)
+                        if value is not None and not (isinstance(value, str) or (
+                                isinstance(value, list) and all(isinstance(v, str) for v in value))):
+                            errors.append('%s.%s: must be a string or a list of strings' % (where, key))
             decider = workflow.get('decider')
             if not isinstance(decider, dict) or not isinstance(decider.get('principles'), str):
                 errors.append('workflow.decider.principles: required string in multi mode')
