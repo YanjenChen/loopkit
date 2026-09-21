@@ -2,16 +2,21 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.py\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.py\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/dangerous-cmd-block.py\"",
             "timeout": 10
           }
         ]
@@ -21,32 +26,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.py\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.py\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/dangerous-cmd-block.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/dangerous-cmd-block.py\"",
             "timeout": 10
           }
         ]
       },
       {
-        "matcher": "Glob|Grep|Read|Edit",
+        "matcher": "Glob|Grep|Read",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.py\"",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.py\"",
             "timeout": 10
           }
         ]
@@ -57,18 +62,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/iteration-context.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/iteration-context.py\"",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs\"",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs\"",
-            "timeout": 30
           }
         ]
       }
@@ -78,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-context.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-context.py\"",
             "timeout": 10
           }
         ]
@@ -89,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session-init.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session-init.py\"",
             "timeout": 15
           }
         ]
@@ -100,7 +95,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-notify.cjs\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-notify.py\"",
             "timeout": 15
           }
         ]

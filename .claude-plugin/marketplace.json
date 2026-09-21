@@ -1,20 +1,20 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "autoresearch",
-  "version": "2.2.2",
-  "description": "Claude Autoresearch \u2014 autonomous goal-directed iteration for Claude Code. 14 commands: iterate, plan, debug, fix, security, ship, scenario, predict, learn, reason, probe, evals, improve, regression.",
+  "name": "loopkit",
+  "version": "0.1.4",
+  "description": "loopkit - evolve code with /goal or /loop and a scored Pareto front. Based on uditgoenka/autoresearch.",
   "owner": {
-    "name": "Udit Goenka",
-    "url": "https://github.com/uditgoenka"
+    "name": "YanjenChen",
+    "url": "https://github.com/YanjenChen"
   },
   "plugins": [
     {
-      "name": "autoresearch",
-      "description": "Autonomous improvement engine. 14 commands with bounded defaults, chain handoff, and adaptive evals checkpoints. 95% token reduction via modular architecture.",
-      "version": "2.2.2",
+      "name": "loopkit",
+      "description": "Evolve a repository's code with /goal or /loop: fixed-format iterations, single-agent or analysts-plus-decider workflows, a tolerance-based Pareto front, human candidates, and a live monitor.",
+      "version": "0.1.4",
       "author": {
-        "name": "Udit Goenka",
-        "url": "https://github.com/uditgoenka"
+        "name": "YanjenChen",
+        "url": "https://github.com/YanjenChen"
       },
       "source": "./claude-plugin",
       "category": "productivity"

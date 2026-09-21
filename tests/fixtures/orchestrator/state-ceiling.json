@@ -1,9 +1,0 @@
-{
-  "archetype": "harden",
-  "errors_remaining": 0,
-  "regression_verdict": "STABLE",
-  "untested_gaps": 0,
-  "units": 2,
-  "plateau": false,
-  "ceiling": true
-}

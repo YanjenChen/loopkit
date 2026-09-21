@@ -1,21 +1,12 @@
-# Baseline patterns — safe to block everywhere
+# Patterns scout-block always blocks in a loopkit run session. A repository can
+# add its own in a .ckignore at its root (committed, so it is part of c000).
 node_modules/
 __pycache__/
 .git/
-dist/
-build/
-out/
-coverage/
 .next/
 .nuxt/
 venv/
 .venv/
-env/
 .terraform/
 .aws/
 .ssh/
-*.log
-.cache/
-tmp/
-.DS_Store
-*.pyc

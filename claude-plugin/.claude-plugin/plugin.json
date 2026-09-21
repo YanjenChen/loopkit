@@ -1,21 +1,20 @@
 {
-  "name": "autoresearch",
-  "description": "Autonomous improvement engine. 14 commands: iterate, plan, debug, fix, security, ship, scenario, predict, learn, reason, probe, improve, evals, regression.",
-  "version": "2.2.2",
+  "name": "loopkit",
+  "description": "Evolve a repository's code with /goal or /loop: fixed-format iterations, single-agent or analysts-plus-decider workflows, a tolerance-based Pareto front, human candidates, and a live monitor.",
+  "version": "0.1.4",
   "author": {
-    "name": "Udit Goenka",
-    "url": "https://github.com/uditgoenka"
+    "name": "YanjenChen",
+    "url": "https://github.com/YanjenChen"
   },
-  "repository": "https://github.com/uditgoenka/autoresearch",
+  "repository": "https://github.com/YanjenChen/loopkit",
   "license": "MIT",
-  "homepage": "https://github.com/uditgoenka/autoresearch",
+  "homepage": "https://github.com/YanjenChen/loopkit",
   "keywords": [
-    "autonomous",
-    "iteration",
     "optimization",
-    "debugging",
-    "security-audit",
-    "shipping",
-    "evals"
+    "evolution",
+    "pareto",
+    "goal",
+    "loop",
+    "benchmark"
   ]
 }

@@ -1,220 +1,52 @@
-# Contributing to Autoresearch
+# Contributing to loopkit
 
-Whether you're fixing a typo, adding examples, creating a new sub-command, or improving the loop protocol — this guide will get you up and running.
+## Setup
 
-## Quick Start
+1. Clone this repository.
+2. In Claude Code, run `/plugins`, add the local path (the repository root) in the Marketplaces tab, and install `loopkit` at user scope.
+3. Installing copies the plugin into `~/.claude/plugins/cache/`. After changing and committing `claude-plugin/`, bump the version in `plugin.json` and `marketplace.json`, run `claude plugin marketplace update loopkit` and `claude plugin update loopkit@loopkit`, and restart the session.
 
-Autoresearch is Markdown files that Claude Code, OpenCode, and Codex discover from `skills/` and `commands/` directories. No build step, no compilation — edit a `.md` file, invoke the skill, see your changes.
+loopkit needs git 2.31 or newer and Python 3.8 or newer. The framework and the hooks use only the Python standard library; keep it that way, and keep the syntax 3.8-compatible.
 
-```bash
-# 1. Clone the repo
-git clone https://github.com/uditgoenka/autoresearch.git
-cd autoresearch
-
-# 2. Install via guided installer
-./scripts/install.sh --claude --global   # Claude Code
-./scripts/install.sh --opencode --global # OpenCode
-./scripts/install.sh --codex --global    # Codex
-
-# 3. Or symlink for live editing (recommended for development)
-ln -s $(pwd)/.claude/skills/autoresearch ~/.claude/skills/autoresearch
-ln -s $(pwd)/.claude/commands/autoresearch ~/.claude/commands/autoresearch
-ln -s $(pwd)/.claude/commands/autoresearch.md ~/.claude/commands/autoresearch.md
-```
-
-### Multi-Platform Sync
-
-The canonical source is `.claude/`. After making changes, run the transform to sync all platforms:
-
-```bash
-./scripts/transform.sh              # sync to OpenCode + Codex
-./scripts/transform.sh --opencode   # OpenCode only
-./scripts/transform.sh --codex      # Codex only
-```
-
-## Repository Structure (v2.2.2)
+## Layout
 
 ```
-autoresearch/
-├── .claude/                                       ← CANONICAL SOURCE — edit here first
-│   ├── skills/autoresearch/
-│   │   ├── SKILL.md                               ← Thin routing table
-│   │   └── references/                            ← Shared routing and review references
-│   └── commands/
-│       ├── autoresearch.md                        ← Core loop (self-contained, ~110 lines)
-│       └── autoresearch/                          ← 13 subcommand files (self-contained)
-├── .opencode/                                     ← OpenCode port (generated via transform.sh)
-├── .agents/ + plugins/                            ← Codex port (generated via transform.sh)
-├── claude-plugin/                                 ← Distribution package (Claude Code plugin install)
-├── scripts/
-│   ├── install.sh                                 ← Guided installer (3 platforms)
-│   ├── transform.sh                               ← .claude/ → .opencode/ + .agents/ sync
-│   ├── release.sh                                 ← Release automation
-│   └── release.md                                 ← Release checklist
-├── guide/                                         ← Guides — one per command + advanced patterns
-├── docs/                                          ← Project docs (architecture, changelog, standards)
-├── COMPARISON.md                                  ← Karpathy vs Claude Autoresearch
-└── CONTRIBUTING.md                                ← You are here
+.claude-plugin/marketplace.json   the marketplace
+claude-plugin/
+  .claude-plugin/plugin.json      the plugin
+  bin/loopkit                     the CLI entry point (Claude Code adds bin/ to the Bash PATH)
+  loopkit/                        the framework: ledger, git plumbing, scope, front, scoring, reports, monitor
+  commands/                       /loopkit:init, iter, request-eval, promote, adopt, status, stop, report
+  agents/                         analyst, analyst-web, decider, critic (loopkit:<name>)
+  skills/loopkit/                 reference: config, score script contract, analysis templates, monitor
+  monitor/monitor.html            the monitor page template
+  hooks/                          hooks that act only in run sessions
+tests/
+  test_loopkit_core.py            unit tests of the pure modules
+  test_loopkit_git.py             modules that use git (snapshots, scope, assets, queue, integrity)
+  test-run-e2e.sh                 the full flow on a toy repository
+  test-hooks.sh                   hooks
 ```
 
-### What Each File Does
+## Design rules
 
-| File | Purpose | Edit when... |
-|------|---------|-------------|
-| `.claude/skills/autoresearch/SKILL.md` | Thin routing table — subcommand list, defaults, universal flags | Adding subcommands, changing defaults |
-| `.claude/commands/autoresearch.md` | Core loop — self-contained instructions (~110 lines) | Changing loop behavior |
-| `.claude/commands/autoresearch/*.md` | Subcommand files — each self-contained with full instructions | Modifying any subcommand |
-| `references/security-checklist.md` | STRIDE + OWASP checklist (loaded by security command) | Adding security checks |
-| `references/predict-personas.md` | 5 expert personas (loaded by predict command) | Adding/modifying personas |
-| `references/reason-judge-protocol.md` | Adversarial refinement protocol (loaded by reason command) | Changing judge/critic behavior |
-| `scripts/transform.sh` | Canonical transform (.claude/ → .opencode/ + .agents/ + claude-plugin/) | Adding new commands, reference files, or generated helper updates |
-| `claude-plugin/` | Distribution package — synced from .claude/ during release | Don't edit directly — edit .claude/ |
+- **The ledger is the only source of truth.** Every state must be derivable from the ledger; `work/` holds only the transient state of the iteration in progress.
+- **Only the framework writes git and the ledger.** The agent only edits files. New write operations go into `loopkit/`; command files never teach the agent to run git commands that write.
+- **Hooks act only in run sessions.** The plugin is installed at user scope, so its hooks run in every session the user has. When a hook finds it is not in a run session, it must allow the call and print nothing.
+- **Output for the agent is readable and greppable.** The formats of the ITER, HUMAN, RESULT, PENDING and `LOOPKIT-STOP` lines are an interface: change the command files and the tests with them.
 
-## What to Contribute
+## Tests
 
-### High-Value
-
-| Type | Examples | Difficulty |
-|------|----------|-----------|
-| **New domain examples** | Add to `guide/examples-by-domain.md` | Easy |
-| **Verification script templates** | Reusable verify/guard commands for common metrics | Easy |
-| **Bug fixes** | Loop edge cases, incorrect behavior | Medium |
-| **New sub-commands** | `/autoresearch:refactor`, `/autoresearch:test` | Medium |
-| **OWASP/STRIDE additions** | New security checks | Medium |
-| **Protocol improvements** | Better stuck-detection, smarter ideation | Hard |
-| **MCP integration patterns** | Database, API, analytics verification examples | Hard |
-
-### Low-Value (Please Don't)
-
-- Reformatting or restructuring files without functional changes
-- Adding comments to explain obvious things
-- Whitespace-only changes
-
-## Adding a New Sub-Command
-
-### 1. Create the command file
+There is no CI. Run all three suites locally before sending a change:
 
 ```
-.claude/commands/autoresearch/yourcommand.md
-```
-
-Self-contained file with: YAML frontmatter (`name`, `description`, `argument-hint`), argument parsing, setup gate, loop/phases, output, chain handoff. Target: 80-120 lines.
-
-### 2. Register in SKILL.md
-
-Add one row to the subcommands table:
-```markdown
-| `/autoresearch:yourcommand` | Description | Default iterations |
-```
-
-### 3. Create reference file (only if needed by 3+ commands)
-
-Only create a reference in `references/` if shared by multiple commands. Single-command logic stays in the command file.
-
-### 4. Run transform + update docs
-
-```bash
-./scripts/transform.sh   # sync to OpenCode + Codex
-```
-
-Update: README.md (commands table), guide/ (new guide file), COMPARISON.md (subcommand count).
-
-## Commit Messages
-
-[Conventional commits](https://www.conventionalcommits.org/):
-
-| Prefix | When |
-|--------|------|
-| `feat:` | New feature or sub-command |
-| `fix:` | Bug fix |
-| `docs:` | Documentation-only |
-| `refactor:` | Restructuring without behavior change |
-| `chore:` | Maintenance, version bumps |
-
-## Pull Request Guidelines
-
-1. **One PR = one feature.** Don't bundle unrelated changes.
-2. **Branch from `master`.** Target `master` as base.
-3. **Run `scripts/transform.sh`** after any changes to `.claude/`.
-4. **Update docs** — README, guide, COMPARISON as needed.
-5. **Don't bump the version.** Maintainers handle via `scripts/release.sh`.
-
-## Testing
-
-The repo includes shell-based verification for the generated distributions and hook/runtime contracts:
-
-1. Symlink your working tree (see Quick Start)
-2. Open Claude Code in a real project
-3. Invoke the command (`/autoresearch`, `/autoresearch:plan`, etc.)
-4. Verify behavior matches your changes
-5. Try edge cases — wrong metric? 0 files in scope? Guard always fails?
-
-For maintainer workflows, the canonical checks are:
-
-- `bash scripts/transform.sh` — regenerate platform distributions and bundled runtime helpers
-- `bash tests/test-maintenance.sh` — transform idempotence and release-prep guards
-- `bash tests/test-hooks.sh` — Claude hook contracts and fail-open behavior
-
-## Release Process
-
-Maintainers use `scripts/release.sh`. See `scripts/release.md` for details.
-
-```bash
-./scripts/release.sh 2.2.2 --title "Release 2.2.2"
-```
-
-Contributors don't need to bump versions.
-
-## Getting Help
-
-- **Questions?** Open an [issue](https://github.com/uditgoenka/autoresearch/issues)
-- **Ideas?** Open an issue with `[Idea]` prefix
-- **Discussion?** Tag [@uditgoenka](https://github.com/uditgoenka) in your PR
-
-Thanks for contributing!
-
-## Hook Development
-
-### Adding a New Hook
-
-1. Create `.claude/hooks/autoresearch/{name}.cjs`
-2. Use the shared library: `require('./lib/ar-hook-utils.cjs')`
-3. Follow the pattern:
-   ```js
-   'use strict';
-   const { isEnabled, safeParseStdin, log, block, allow, inject } = require('./lib/ar-hook-utils.cjs');
-   try {
-     if (!isEnabled('hook-name')) process.exit(0);
-     const stdin = safeParseStdin();
-     if (!stdin) process.exit(0);
-     // ... hook logic ...
-     process.exit(0);
-   } catch {
-     process.exit(0); // fail-open
-   }
-   ```
-4. Register in `hooks.json` under the correct event
-5. Run `bash scripts/transform.sh` to update the plugin distribution and bundled runtime helpers
-6. Run `bash tests/test-hooks.sh` to verify
-
-### Hook Rules
-
-- **Fail-open:** Always wrap in try/catch, always exit 0 on error, and emit a visible redacted diagnostic when available
-- **No console.log:** Corrupts stdout JSON. Use `process.stderr.write()` for debug
-- **No external deps:** Pure Node.js builtins only (exception: vendored `lib/ignore.cjs`)
-- **Exit codes:** 0 = allow/inject, 2 = block. No other exit codes
-- **State:** Use the OS temporary directory via `loadSessionState()` / `saveSessionState()`; this is not a repo path
-
-### Testing Hooks
-
-```bash
-# Syntax check
-node --check .claude/hooks/autoresearch/my-hook.cjs
-
-# Manual test
-echo '{"tool_name":"Read","tool_input":{"file_path":"test.txt"}}' | node .claude/hooks/autoresearch/my-hook.cjs
-echo "Exit code: $?"
-
-# Full test suite
+python3 -m unittest discover -s tests -p 'test_loopkit_*.py'
+bash tests/test-run-e2e.sh
 bash tests/test-hooks.sh
 ```
+
+The command files, agents and monitor can only be verified in real Claude Code sessions: install from the local marketplace, run `/loopkit:init` in a toy repository (`bash tests/fixtures/make-toy-placer.sh <dir>` creates one), then open the agent worktree and run a few short `/goal` and `/loop` batches.
+
+## Commit messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`.
