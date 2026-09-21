@@ -4,4 +4,4 @@ Everything here is Python 3.8+ standard library only. The CLI entry point is
 bin/loopkit; the hooks import helpers from this package too.
 """
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'

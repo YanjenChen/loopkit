@@ -83,6 +83,7 @@ ITER 7/20 | c012<-c009 | hpwl 1.0231e6 (-0.80% better) | runtime 41.200s (+1.2% 
 | `/loopkit:adopt <id>` | 在你的 repo 建立指向候選的 branch |
 | `/loopkit:status` | run 的狀態 |
 | `/loopkit:stop` | 提早結束目前的批次 |
+| `/loopkit:report` | 收集除錯報告並診斷；報告的 `.tar.gz` 可以直接附到 GitHub issue |
 
 `/loopkit:iter` 只在 run session 裡由 `/goal` 或 `/loop` 執行。
 

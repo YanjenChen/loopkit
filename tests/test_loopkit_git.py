@@ -23,6 +23,21 @@ class GitopsTest(TempDirTest):
         self.assertIn('src/a.py', git(repo, 'status', '--porcelain'))
         self.assertFalse(os.path.exists(os.path.join(self.tmp, 'idx')))
 
+    def test_snapshot_sees_a_same_size_edit_in_the_checkout_second(self):
+        import time
+        repo = self.make_repo(files={'src/params.json': '{"spread": 1.5}\n'})
+        head = git(repo, 'rev-parse', 'HEAD')
+        wt = os.path.join(self.tmp, 'wt')
+        gitops.worktree_add(repo, wt, head, 'test')
+        idx = os.path.join(self.tmp, 'idx')
+        write(wt, 'src/params.json', '{"spread": 9.9}\n')  # so the reset below rewrites the file
+        time.sleep(1 - (time.time() % 1) + 0.01)  # checkout and edit share one second
+        gitops.reset_worktree(wt, head, gitops.common_dir(repo))
+        base = gitops.snapshot_tree(wt, idx)
+        write(wt, 'src/params.json', '{"spread": 1.2}\n')
+        time.sleep(1.1)  # the next snapshot happens a second later, as after the integrity check
+        self.assertNotEqual(gitops.snapshot_tree(wt, idx), base)
+
     def test_snapshot_respects_gitignore(self):
         repo = self.make_repo(files={'.gitignore': '*.o\n', 'src/a.c': 'x'})
         write(repo, 'src/a.o', 'obj')

@@ -57,6 +57,7 @@ score (`run create`, `queue`, `evaluate`, `wait`) wait up to about 9 minutes and
 | `show ID [--log]`, `lineage ID`, `diff A B` | anyone | inspect candidates |
 | `request-eval COMMIT`, `promote hNNN`, `adopt ID` | the user only | human candidates; get a candidate back as a branch |
 | `status`, `run list`, `run remove NAME --yes`, `check` | the user | inspect, clean up, verify integrity |
+| `report [--transcripts]` | anyone | collect a debug report (`/loopkit:report` also diagnoses it) |
 
 `--run NAME` selects a run; by default a command uses the run whose agent worktree it runs
 in, or the repository's newest run.
@@ -84,6 +85,10 @@ the run session loads loopkit whatever scope it was installed with.
   `${CLAUDE_PLUGIN_ROOT}/skills/loopkit/references/monitor.md`
 
 ## Troubleshooting
+
+Start with `/loopkit:report`: it collects the run's state, integrity check, recent scoring
+jobs with their logs, worktree status, run-session settings, hook log and environment into
+`<run dir>/reports/report-<time>/report.md` plus a `.tar.gz`, and diagnoses it.
 
 - `LOOPKIT-STOP | integrity: ...`: something changed that the run depends on: the
   eval-assets snapshot, the ledger, a candidate ref, a queued request, or git configuration

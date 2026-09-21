@@ -109,6 +109,20 @@ def cmd_monitor_ack(args):
     run.export(ack=args.seq)
 
 
+def cmd_report(args):
+    from . import debug
+    cwd = os.getcwd()
+    try:
+        run = run_mod.resolve(cwd, args.run)
+    except LoopkitError:
+        run = None
+    directory, tarball = debug.collect(cwd, run, args.out, args.transcripts, args.jobs)
+    print('REPORT %s' % os.path.join(directory, 'report.md'))
+    print('ARCHIVE %s' % tarball)
+    if run is None:
+        print('NOTE: no run found here; the report covers the environment and repository only')
+
+
 def cmd_shim(args):
     target_dir = os.path.expanduser(args.dir)
     os.makedirs(target_dir, exist_ok=True)
@@ -255,6 +269,10 @@ def build_parser():
     p = run_option(monitor_sub.add_parser('ack', help='mark records up to SEQ as pushed'))
     p.add_argument('seq', type=int)
     p.set_defaults(func=cmd_monitor_ack)
+    p = add('report', cmd_report, 'collect a debug report (run state, logs, environment)')
+    p.add_argument('--out', help='directory for the report (default: the run directory)')
+    p.add_argument('--transcripts', action='store_true', help='include the run session transcripts')
+    p.add_argument('--jobs', type=int, default=5, help='number of recent scoring jobs to include')
     p = add('shim', cmd_shim, 'install a `loopkit` command for your terminal')
     p.add_argument('--dir', default='~/.local/bin')
     p = sub.add_parser('_worker')

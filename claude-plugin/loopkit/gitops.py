@@ -318,7 +318,10 @@ def snapshot_tree(worktree, index_path, exclude=()):
         pass
     real_index = os.path.join(git_dir(worktree), 'index')
     if os.path.isfile(real_index):
-        shutil.copyfile(real_index, index_path)
+        # copy2 keeps the index file's mtime. Git compares an entry's stat against it to spot
+        # "racily clean" files; with a fresh mtime, a same-size edit made in the same second
+        # as the checkout would look unchanged and be missing from the snapshot.
+        shutil.copy2(real_index, index_path)
     else:
         run(['read-tree', 'HEAD'], worktree, env=env)
     run(['add', '-A', '--', '.'], worktree, env=env)

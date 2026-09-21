@@ -142,6 +142,10 @@ EOF
 # ---------------------------------------------------------------------------
 printf '\n--- init helpers ---\n'
 
+lk "$REPO" report --out "$TMP/reports"
+has "NOTE: no run found here" "report works before any run exists"
+grep -q "## Environment" "$TMP"/reports/report-*/report.md && pass "the early report has the environment" || fail "the early report has the environment"
+
 lk "$REPO" config check
 has "CONFIG ok" "config check validates the config"
 has "SCREEN ok" "config check screens the commands"
@@ -424,6 +428,15 @@ grep -qF '"Artifact"' "$AGENT/.claude/settings.local.json" && pass "the run sess
 lk "$REPO" adopt c006
 has "ADOPTED c006 as branch loopkit/r001/c006" "adopt creates a branch"
 same "$(git -C "$REPO" rev-parse loopkit/r001/c006)" "$(git -C "$REPO" rev-parse refs/evolve/r001/c006)" "branch points at c006"
+
+lk "$AGENT" report
+REPORT_MD="$(printf '%s' "$OUT" | sed -n 's/^REPORT //p')"
+[ -f "$REPORT_MD" ] && pass "report writes report.md" || fail "report writes report.md"
+[ -f "$(printf '%s' "$OUT" | sed -n 's/^ARCHIVE //p')" ] && pass "report writes an archive" || fail "report writes an archive"
+for section in "## Run r001" "### Integrity (read-only check)" "### Recent scoring jobs" "### Worktrees and refs" "### Run session settings"; do
+  grep -qF "$section" "$REPORT_MD" && pass "report has $section" || fail "report has $section"
+done
+[ -f "$(dirname "$REPORT_MD")/files/ledger.jsonl" ] && pass "report includes the ledger" || fail "report includes the ledger"
 
 lk "$REPO" status
 has "RUN r001" "status shows the run"
