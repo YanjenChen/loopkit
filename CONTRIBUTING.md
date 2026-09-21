@@ -8,8 +8,8 @@ Autoresearch is a Claude Code plugin: Markdown files that Claude Code discovers 
 
 ```bash
 # Clone the repo
-git clone https://github.com/uditgoenka/autoresearch.git
-cd autoresearch
+git clone https://github.com/YanjenChen/loopkit.git
+cd loopkit
 ```
 
 Then, in Claude Code:

@@ -18,8 +18,8 @@ Everything you need to master autonomous iteration — from first run to advance
 ## Quick Start
 
 ```
-/plugin marketplace add uditgoenka/autoresearch
-/plugin install autoresearch@autoresearch
+/plugin marketplace add YanjenChen/loopkit
+/plugin install loopkit@loopkit
 /autoresearch
 ```
 

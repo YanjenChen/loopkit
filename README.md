@@ -6,6 +6,8 @@
 
 Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) — constraint + mechanical metric + autonomous iteration = compounding gains.
 
+**loopkit** is a fork of [uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch) by Udit Goenka (MIT License).
+
 [![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blue?logo=anthropic&logoColor=white)](https://docs.anthropic.com/en/docs/claude-code)
 [![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/uditgoenka/autoresearch/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -217,8 +219,8 @@ Contributor verification (local test suites) lives in [CONTRIBUTING.md](CONTRIBU
 Install through Claude Code's plugin manager: the `/plugins` dialog in the VS Code extension, or `/plugin` in the CLI. Add the marketplace, then install the plugin:
 
 ```
-/plugin marketplace add uditgoenka/autoresearch
-/plugin install autoresearch@autoresearch
+/plugin marketplace add YanjenChen/loopkit
+/plugin install loopkit@loopkit
 ```
 
 > **Note:** Start a new Claude Code session after installing. Reference files aren't resolvable in the same session where installation happened — this is a Claude Code platform limitation.
@@ -227,7 +229,7 @@ Install through Claude Code's plugin manager: the `/plugins` dialog in the VS Co
 
 **Updating (no reinstall needed):**
 ```
-/plugin update autoresearch
+/plugin update loopkit
 ```
 
 Run `/reload-plugins` to activate. No need to uninstall or re-clone.

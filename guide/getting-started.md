@@ -17,8 +17,8 @@ Works on anything with a measurable outcome — code coverage, bundle size, API 
 Autoresearch installs through Claude Code's plugin manager: the `/plugins` dialog in the VS Code extension, or `/plugin` in the CLI. Add the marketplace, then install the plugin:
 
 ```
-/plugin marketplace add uditgoenka/autoresearch
-/plugin install autoresearch@autoresearch
+/plugin marketplace add YanjenChen/loopkit
+/plugin install loopkit@loopkit
 ```
 
 Enabling the plugin also registers the hook guardrails from its `hooks/hooks.json`. The hooks run on Node.js: they need `node` 18 or newer on the PATH of the shell Claude Code uses. Nothing checks this at install time.

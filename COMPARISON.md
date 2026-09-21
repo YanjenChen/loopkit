@@ -220,8 +220,8 @@ uv run train.py
 
 ```bash
 # 1. Install (one command in Claude Code)
-/plugin marketplace add uditgoenka/autoresearch
-/plugin install autoresearch@autoresearch
+/plugin marketplace add YanjenChen/loopkit
+/plugin install loopkit@loopkit
 
 # 2. Run (Claude asks you what you need)
 /autoresearch
@@ -363,7 +363,7 @@ autoresearch/
 | **GPU required** | ✅ Yes (CUDA 12.8+) | ❌ No |
 | **Programming languages** | Python only | Any language (TypeScript, Python, Go, Rust, Java, Ruby, etc.) |
 | **Dependencies** | PyTorch 2.9.1, CUDA, numpy, tqdm | Claude Code only |
-| **Installation** | git clone + uv sync + data prep | `/plugin marketplace add uditgoenka/autoresearch` |
+| **Installation** | git clone + uv sync + data prep | `/plugin marketplace add YanjenChen/loopkit` |
 | **Cost model** | GPU compute ($2-5/hour for H100) | Claude API tokens |
 | **Offline capable** | ✅ Yes (after data prep) | ❌ Requires Claude API |
 | **CI/CD integration** | ❌ Not designed for CI | ✅ GitHub Actions, GitLab CI, pre-commit hooks |
