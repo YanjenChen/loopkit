@@ -78,10 +78,13 @@ Take from the request whatever it states, and propose the rest in step 3:
 
 ## 5. Monitor
 
-Build the monitor page with `loopkit monitor html --sample --out <scratch>/monitor.html`,
-then publish it with the Artifact tool and the capabilities the `loopkit:loopkit` skill names.
-Until the run exists, the page shows clearly labeled sample data in every block, including
-human candidates, so the user can judge the layout. Note its URL.
+`loopkit monitor html --sample --out <scratch dir>/monitor.html` writes the monitor page,
+shaped by the config (a metric-by-iteration chart for one objective, a Pareto front for
+several), with clearly labeled sample data in every block, human candidates included.
+Publish that file with the Artifact tool, using the icon and `capabilities` the command
+prints (they let the page read its database, and only editors write to it). Note the URL.
+The user judges the layout from the sample; the sample disappears once the run pushes its
+first records.
 
 ## 6. Confirm
 
@@ -106,9 +109,9 @@ the flagged commands in step 4. `run create`:
 5. writes the ledger and the c000 ref;
 6. writes the agent worktree's permission rules, GPU environment and run marker.
 
-Then clear the monitor's sample data and push c000:
-`loopkit --run <name> export --pending`, write the records as described in `/loopkit:iter`,
-and `loopkit --run <name> export --ack <latest_seq>`.
+Then push c000 to the monitor, which replaces its sample data:
+`loopkit monitor push --run <name>`, the Artifact `write_db` call as described in
+`/loopkit:iter`, and `loopkit monitor ack <seq> --run <name>`.
 
 ## 8. Next steps
 

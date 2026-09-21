@@ -129,30 +129,25 @@ proposal format below before you implement it. `--proposed-by` is `agent`.
    whether the result confirmed it, and the evidence. Later iterations read it to avoid
    dead ends. `record` prints the ITER line, and a `LOOPKIT-STOP` line when the batch is
    done.
-5. **Monitor**: update it as described below.
+5. **Monitor**: push the new records, as described below.
 6. End your reply with the ITER line, followed by the `LOOPKIT-STOP` line when there is one.
    Do not start another iteration.
 
 ## Monitor
 
-When `loopkit export --pending` shows a `monitor_url`, push the new records to it:
+`loopkit monitor push` writes the monitor's new documents to JSON files and prints a
+`MONITOR <url>` line and a `WRITES <json>` line (or says the run has no monitor). Call the
+Artifact tool with `action: "write_db"`, `url`: that URL, `db_op: "batch"`, and `writes`:
+that JSON list, unchanged. Then run the `loopkit monitor ack <seq>` command it printed.
 
-1. `loopkit export --pending` prints the records added since the last push, as JSON.
-2. Write each record to the monitor artifact's database with the Artifact tool
-   (`action: "write_db"`, `db_op: "batch"`, `url`: the `monitor_url`, collection `records`,
-   `doc_id`: the record's `seq`, zero-padded to 6 digits, `data`: the record). Up to 50
-   records per batch. Also write the export's `status`, `patterns` and `objectives` as
-   the document `meta/current` (collection `meta`, `doc_id` `current`).
-3. `loopkit export --ack <latest_seq>` marks them as pushed.
-
-The monitor only displays the ledger. If a push fails, continue; the next iteration pushes
-the missing records again.
+The monitor only displays the ledger. If the push fails, continue: the next iteration
+pushes the missing records again.
 
 ## Stop
 
 When any loopkit command prints `LOOPKIT-STOP | <reason>`:
 
-1. Update the monitor, as above.
+1. Push to the monitor, as above.
 2. Under `/goal`: end your reply with the `LOOPKIT-STOP | <reason>` line. That completes the
    goal.
 3. Under `/loop`: stop the loop. In self-paced mode, call ScheduleWakeup with `stop: true`

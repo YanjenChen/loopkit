@@ -49,7 +49,8 @@ score (`run create`, `queue`, `evaluate`, `wait`) wait up to about 9 minutes and
 | `precheck` | run session | compile-only build of the agent worktree |
 | `evaluate`, `wait` | run session | snapshot, scope check, score; keep waiting |
 | `record --idea --proposed-by --learned` | run session | commit the candidate to the ledger, print ITER |
-| `export [--since N / --pending / --ack N]` | run session | records for the monitor |
+| `monitor push`, `monitor ack SEQ` | run session | documents for the monitor, and marking them pushed |
+| `export [--since N / --pending]` | anyone | the ledger with derived fields, as JSON |
 | `show ID [--log]`, `lineage ID`, `diff A B` | anyone | inspect candidates |
 | `request-eval COMMIT`, `promote hNNN`, `adopt ID` | the user only | human candidates; get a candidate back as a branch |
 | `status`, `run list`, `run remove NAME --yes`, `check` | the user | inspect, clean up, verify integrity |

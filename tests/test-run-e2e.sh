@@ -352,6 +352,24 @@ has "ACK $LATEST" "ack records the pushed seq"
 lk "$AGENT" export --pending
 same "$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["records"]))')" "0" "nothing pending after ack"
 
+lk "$AGENT" monitor ack 0
+lk "$AGENT" monitor push
+has "MONITOR https://example.invalid/monitor" "monitor push names the monitor"
+WRITES="$(printf '%s' "$OUT" | sed -n 's/^WRITES //p')"
+same "$(printf '%s' "$WRITES" | python3 -c 'import json,sys; w=json.load(sys.stdin); print(w[-1]["collection"]+"/"+w[-1]["doc_id"], all(__import__("os").path.isfile(x["file_path"]) for x in w))')" "meta/current True" "monitor push writes the documents as files"
+same "$(printf '%s' "$WRITES" | python3 -c 'import json,sys; w=json.load(sys.stdin); d=json.load(open(w[0]["file_path"])); print(w[0]["doc_id"], d["first_seq"], "derived" in d["records"][0])')" "chunk-00000 1 True" "the first chunk starts at seq 1 with derived fields"
+ACK="$(printf '%s' "$OUT" | sed -n 's/.*loopkit monitor ack \([0-9]*\).*/\1/p')"
+lk "$AGENT" monitor ack "$ACK"
+has "ACK $ACK" "monitor ack records the pushed seq"
+lk "$AGENT" monitor push
+has "up to date" "nothing new after the ack"
+same "$(printf '%s' "$OUT" | sed -n 's/^WRITES //p' | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')" "1" "an up-to-date push only refreshes meta"
+lk "$REPO" monitor html --sample --out "$TMP/monitor.html"
+has "with sample data" "monitor html embeds sample data"
+grep -q '"sample":true' "$TMP/monitor.html" && pass "the sample is marked as sample" || fail "the sample is marked as sample"
+grep -q '/\*__LOOPKIT_SAMPLE__\*/' "$TMP/monitor.html" && fail "the sample placeholder is replaced" || pass "the sample placeholder is replaced"
+grep -qF '"Artifact"' "$AGENT/.claude/settings.local.json" && pass "the run session may push to the monitor without a prompt" || fail "the run session may push to the monitor without a prompt"
+
 lk "$REPO" adopt c006
 has "ADOPTED c006 as branch loopkit/r001/c006" "adopt creates a branch"
 same "$(git -C "$REPO" rev-parse loopkit/r001/c006)" "$(git -C "$REPO" rev-parse refs/evolve/r001/c006)" "branch points at c006"

@@ -130,7 +130,8 @@ def create(cwd, name=None, gpu=None, knowledge=None, monitor_url=None, allow_dan
     ledger.event('run_created', run_json_sha256=sha256_file(run_paths.run_json), c000=c000)
 
     settings = {
-        'permissions': {'deny': _deny_rules(repo, run_paths, common)},
+        # Artifact is allowed so pushing to the monitor never waits on a prompt in an unattended run.
+        'permissions': {'allow': ['Artifact'], 'deny': _deny_rules(repo, run_paths, common)},
         'env': dict({'PYTHONDONTWRITEBYTECODE': '1'}, **({'CUDA_VISIBLE_DEVICES': gpu} if gpu else {})),
     }
     write_json_atomic(os.path.join(run_paths.agent, paths_mod.SETTINGS_LOCAL), settings)

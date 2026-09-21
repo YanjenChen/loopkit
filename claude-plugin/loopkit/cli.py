@@ -1,6 +1,7 @@
 """The `loopkit` command line."""
 
 import argparse
+import json
 import os
 import sys
 
@@ -54,6 +55,51 @@ def cmd_check(args):
         print('WARNING: %s changed since the last recorded state' % key)
     if report.ok:
         print('INTEGRITY ok')
+
+
+def cmd_monitor_html(args):
+    from . import config as config_mod, gitops, monitor
+    cwd = os.getcwd()
+    try:
+        run = run_mod.resolve(cwd, args.run, session_only=True) if args.run or paths_mod.find_marker(cwd)[1] else None
+    except LoopkitError:
+        run = None
+    if run is not None:
+        config, name = run.config, run.name
+        repo_name = os.path.basename(run.info['repo']['toplevel'])
+    else:
+        repo = gitops.toplevel(cwd)
+        config = config_mod.load(os.path.join(repo, config_mod.CONFIG_PATH))
+        name = run_mod._next_run_name(gitops.common_dir(repo))
+        repo_name = os.path.basename(repo)
+    sample = monitor.sample_data(config, name) if args.sample else None
+    html = monitor.render(args.title or monitor.default_title(repo_name, name), sample)
+    with open(args.out, 'w', encoding='utf-8') as f:
+        f.write(html)
+    print('MONITOR page written to %s%s' % (args.out, ' (with sample data)' if sample else ''))
+    print('PUBLISH with the Artifact tool: file_path %s, icon "chart", capabilities %s' % (
+        args.out, json.dumps(monitor.DB_CAPABILITIES)))
+
+
+def cmd_monitor_push(args):
+    from . import monitor
+    run = session_run(args)
+    url = run.info.get('monitor_url')
+    if not url:
+        print('MONITOR none: this run has no monitor')
+        return
+    writes, latest, pushed = monitor.push_plan(run)
+    if latest <= pushed:
+        print('MONITOR up to date (seq %d); pushing the status only' % latest)
+    print('MONITOR %s' % url)
+    print('WRITES %s' % json.dumps(writes))
+    print('NEXT: Artifact action "write_db", url above, db_op "batch", writes above; then `loopkit monitor ack %d`'
+          % latest)
+
+
+def cmd_monitor_ack(args):
+    run = session_run(args)
+    run.export(ack=args.seq)
 
 
 def cmd_shim(args):
@@ -185,6 +231,20 @@ def build_parser():
     p.add_argument('id')
     p.add_argument('--branch')
     add('status', lambda a: user_run(a).status(), 'show the state of a run')
+
+    monitor_p = sub.add_parser('monitor', help='the monitor page and pushing records to it')
+    monitor_sub = monitor_p.add_subparsers(dest='monitor_command', metavar='<monitor-command>')
+    monitor_sub.required = True
+    p = run_option(monitor_sub.add_parser('html', help='write the monitor page'))
+    p.add_argument('--out', required=True)
+    p.add_argument('--sample', action='store_true', help='embed sample data for the setup preview')
+    p.add_argument('--title')
+    p.set_defaults(func=cmd_monitor_html)
+    p = run_option(monitor_sub.add_parser('push', help='write the documents to push and print the write list'))
+    p.set_defaults(func=cmd_monitor_push)
+    p = run_option(monitor_sub.add_parser('ack', help='mark records up to SEQ as pushed'))
+    p.add_argument('seq', type=int)
+    p.set_defaults(func=cmd_monitor_ack)
     p = add('shim', cmd_shim, 'install a `loopkit` command for your terminal')
     p.add_argument('--dir', default='~/.local/bin')
     p = sub.add_parser('_worker')

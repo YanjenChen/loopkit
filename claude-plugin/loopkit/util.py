@@ -119,7 +119,7 @@ def _floor_log10(x):
 
 def fmt_pct(fraction):
     """A signed percentage with 2 significant digits: -0.80%, +1.2%, +12%."""
-    pct = fraction * 100.0
+    pct = float('%.2g' % (fraction * 100.0))
     if pct == 0:
         return '+0.0%'
     decimals = max(0, 1 - _floor_log10(abs(pct)))

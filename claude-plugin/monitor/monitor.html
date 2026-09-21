@@ -1,0 +1,1048 @@
+<title>__LOOPKIT_TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #f1f4f6;
+    --surface: #ffffff;
+    --sunken: #e7ecf0;
+    --ink: #17202a;
+    --muted: #5a6572;
+    --line: #d3dae0;
+    --accent: #b25a26;
+    --accent-soft: rgba(178, 90, 38, 0.14);
+    --kept: #2e7d52;
+    --reverted: #8793a0;
+    --failed: #b42318;
+    --human: #5b4fc4;
+    --baseline: #17202a;
+    --focus: #1d6fb8;
+    --display: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1317;
+      --surface: #151c22;
+      --sunken: #1c252c;
+      --ink: #e4e9ed;
+      --muted: #93a0ac;
+      --line: #2a353e;
+      --accent: #e38b52;
+      --accent-soft: rgba(227, 139, 82, 0.16);
+      --kept: #52b882;
+      --reverted: #7b8895;
+      --failed: #f0665b;
+      --human: #a295f2;
+      --baseline: #e4e9ed;
+      --focus: #6cb2f0;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e1317;
+    --surface: #151c22;
+    --sunken: #1c252c;
+    --ink: #e4e9ed;
+    --muted: #93a0ac;
+    --line: #2a353e;
+    --accent: #e38b52;
+    --accent-soft: rgba(227, 139, 82, 0.16);
+    --kept: #52b882;
+    --reverted: #7b8895;
+    --failed: #f0665b;
+    --human: #a295f2;
+    --baseline: #e4e9ed;
+    --focus: #6cb2f0;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font: 14px/1.5 var(--body);
+  }
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 20px 56px;
+    display: grid;
+    gap: 16px;
+  }
+  h1, h2 { font-family: var(--display); font-weight: 600; margin: 0; text-wrap: balance; }
+  h1 { font-size: 30px; line-height: 1.1; letter-spacing: 0.01em; }
+  h2 { font-size: 17px; letter-spacing: 0.02em; }
+  .label {
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  code, .mono { font-family: var(--mono); font-size: 12.5px; }
+  button, select, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* Header and status */
+  .top { display: grid; gap: 8px; }
+  .title-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px; }
+  .pill {
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+  }
+  .pill.running { color: var(--kept); }
+  .pill.stopped { color: var(--accent); }
+  .pill.sample, .pill.waiting { color: var(--muted); }
+  .subline { color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .progress { height: 6px; background: var(--sunken); border-radius: 3px; overflow: hidden; max-width: 520px; }
+  .progress > div { height: 100%; background: var(--accent); width: 0; }
+  .stop-reason { color: var(--accent); font-family: var(--mono); font-size: 13px; margin: 0; }
+  .banner {
+    border: 1px dashed var(--accent);
+    background: var(--accent-soft);
+    padding: 10px 14px;
+    border-radius: 6px;
+    max-width: 90ch;
+  }
+  .banner strong { font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat {
+    display: grid;
+    gap: 0;
+    min-width: 92px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .stat .num { font-family: var(--mono); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .stat.kept .num { color: var(--kept); }
+  .stat.failed .num { color: var(--failed); }
+  .stat.human .num { color: var(--human); }
+  .stat.front .num { color: var(--accent); }
+  .latest {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    overflow-x: auto;
+  }
+  .latest code { white-space: pre; }
+
+  .patterns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .pattern { display: grid; gap: 6px; align-content: start; }
+  .bar-row { display: grid; grid-template-columns: minmax(70px, auto) 1fr auto; gap: 8px; align-items: center; }
+  .bar-row .track { height: 6px; background: var(--sunken); border-radius: 3px; overflow: hidden; }
+  .bar-row .fill { height: 100%; background: var(--kept); }
+  .bar-row .val { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .file-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+  .file-list li { display: flex; justify-content: space-between; gap: 8px; }
+  .file-list li code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trend { display: flex; gap: 4px; flex-wrap: wrap; }
+  .trend span { width: 14px; height: 14px; border-radius: 3px; }
+
+  /* Panels */
+  .main { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px 16px;
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+  .panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; color: var(--muted); }
+  .controls select {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+  .chart-box { width: 100%; min-height: 240px; position: relative; }
+  .chart-box svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend svg { width: 22px; height: 12px; }
+  .timeline { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .timeline input[type="range"] { flex: 1 1 200px; accent-color: var(--accent); }
+  .btn {
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 3px 12px;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .empty { color: var(--muted); padding: 24px 0; }
+
+  /* Chart marks */
+  .axis line, .axis path { stroke: var(--line); }
+  .grid line { stroke: var(--line); stroke-dasharray: 2 4; }
+  .tick-text { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .axis-title { fill: var(--muted); font-family: var(--display); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .pt { cursor: pointer; stroke-width: 1.5; }
+  .pt:hover { stroke-width: 3; }
+  .st-KEPT { fill: var(--kept); stroke: var(--kept); }
+  .st-REVERTED { fill: var(--reverted); stroke: var(--reverted); }
+  .st-BASELINE { fill: var(--baseline); stroke: var(--baseline); }
+  .st-FAILED { fill: none; stroke: var(--failed); stroke-width: 2; }
+  .st-HUMAN { fill: var(--surface); stroke: var(--human); stroke-width: 2; }
+  .st-HUMANP { fill: var(--human); stroke: var(--human); }
+  .st-OTHER { fill: var(--reverted); stroke: var(--reverted); opacity: 0.55; }
+  .on-front { stroke: var(--accent); stroke-width: 2.5; }
+  .best-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+  .front-line { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .past-front { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 3 4; opacity: 0.45; }
+  .batch-sep { stroke: var(--muted); stroke-dasharray: 4 4; opacity: 0.6; }
+  .batch-text { fill: var(--muted); font-family: var(--display); font-size: 11px; letter-spacing: 0.06em; }
+  .mark-label { fill: var(--ink); font-family: var(--mono); font-size: 11px; }
+  .latest-ring { fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 2 2; }
+  .better { fill: var(--accent); font-family: var(--display); font-size: 12px; letter-spacing: 0.06em; }
+  .better-arrow { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+
+  /* Evolve tree */
+  .tree-box { max-height: 620px; overflow: auto; position: relative; }
+  .tree { position: relative; }
+  .tree svg { position: absolute; left: 0; top: 0; overflow: visible; }
+  .tree-row {
+    height: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .tree-row:hover { background: var(--sunken); }
+  .tree-row code { flex: none; }
+  .tree-row .idea { overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+  .edge { fill: none; stroke: var(--line); stroke-width: 1.6; }
+  .edge.merge { stroke-dasharray: 4 3; }
+  .node-human { stroke-dasharray: 2.5 2; }
+
+  /* Candidate list */
+  .cand { border-top: 1px solid var(--line); }
+  .cand:first-child { border-top: none; }
+  .cand > summary {
+    list-style: none;
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 7px 4px;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .cand > summary::-webkit-details-marker { display: none; }
+  .cand > summary code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .cand[open] > summary { background: var(--sunken); border-radius: 4px; }
+  .cand.flash > summary { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+  .chip {
+    flex: none;
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0 7px;
+    border-radius: 3px;
+    color: var(--surface);
+  }
+  .chip.KEPT { background: var(--kept); }
+  .chip.REVERTED { background: var(--reverted); }
+  .chip.FAILED { background: var(--failed); }
+  .chip.BASELINE { background: var(--baseline); }
+  .chip.OBSERVED { background: var(--human); }
+  .detail { display: grid; gap: 12px; padding: 10px 4px 16px; }
+  .kv { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 4px 14px; }
+  @media (max-width: 520px) { .kv { grid-template-columns: minmax(0, 1fr); } }
+  .kv > dt { color: var(--muted); }
+  .kv > dd { margin: 0; overflow-wrap: anywhere; max-width: 90ch; }
+  .table-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 3px 14px 3px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-family: var(--display); font-weight: 600; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  td.num { font-family: var(--mono); font-size: 12.5px; }
+  .cmp-better { color: var(--kept); }
+  .cmp-worse { color: var(--failed); }
+  .cmp-same { color: var(--muted); }
+
+  .tip {
+    position: fixed;
+    z-index: 10;
+    max-width: 340px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    pointer-events: none;
+    display: grid;
+    gap: 4px;
+    font-size: 12.5px;
+  }
+  .tip .muted, .muted { color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="title-row">
+      <h1 id="run-name">loopkit run</h1>
+      <span class="pill waiting" id="state-pill">loading</span>
+    </div>
+    <div class="subline" id="subline"></div>
+    <div class="progress" id="progress" hidden><div id="progress-bar"></div></div>
+    <p class="stop-reason" id="stop-reason" hidden></p>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="stats" id="stats" aria-label="Counts"></section>
+  <section class="latest" aria-label="Latest iteration"><span class="label">Latest</span><code id="latest-line">none yet</code></section>
+  <section class="patterns" id="patterns" aria-label="Patterns"></section>
+
+  <div class="main">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 id="chart-title">Progress</h2>
+        <div class="controls" id="chart-controls"></div>
+      </div>
+      <div class="chart-box" id="chart"></div>
+      <div class="legend" id="legend"></div>
+      <div class="timeline" id="timeline" hidden>
+        <button class="btn" id="play" type="button">Play</button>
+        <input type="range" id="slider" min="0" max="0" value="0" aria-label="Show the front as of this record">
+        <span class="mono muted" id="slider-label"></span>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Evolve tree</h2>
+        <label class="controls"><input type="checkbox" id="hide-failed"> Hide FAILED</label>
+      </div>
+      <div class="tree-box" id="tree"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Candidates</h2>
+      <span class="muted" id="list-count"></span>
+    </div>
+    <div id="list"></div>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+  const SAMPLE = /*__LOOPKIT_SAMPLE__*/null;
+
+  const S = {
+    source: 'none',       // 'live' | 'sample' | 'waiting' | 'none'
+    dbMissing: false,
+    meta: null,
+    chunks: new Map(),
+    records: [],
+    open: new Set(),
+    hideFailed: false,
+    xObj: 0,
+    yObj: 1,
+    sliderSeq: null,
+    playing: null,
+  };
+  const $ = (id) => document.getElementById(id);
+  const SVGNS = 'http://www.w3.org/2000/svg';
+
+  // -- small helpers ---------------------------------------------------------------
+
+  function h(tag, attrs, ...children) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === undefined || v === null || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : v);
+    }
+    for (const c of children.flat()) {
+      if (c === null || c === undefined || c === false) continue;
+      el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return el;
+  }
+  function s(tag, attrs, ...children) {
+    const el = document.createElementNS(SVGNS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === undefined || v === null) continue;
+      if (k === 'text') el.textContent = v;
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v);
+    }
+    for (const c of children.flat()) if (c) el.append(c);
+    return el;
+  }
+  function fmt5(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return String(v);
+    if (v === 0) return '0.0000';
+    const m = Math.abs(v);
+    if (m >= 1e-3 && m < 1e5) {
+      const dec = m >= 1 ? Math.max(0, 5 - String(Math.trunc(m)).length) : 4 - Math.floor(Math.log10(m));
+      const t = v.toFixed(dec);
+      if (t.replace('-', '').split('.')[0].replace(/^0+/, '').length <= 5) return t;
+    }
+    const parts = v.toExponential(4).split('e');
+    return parts[0] + 'e' + parseInt(parts[1], 10);
+  }
+  function fmtPct(f) {
+    const pct = Number((f * 100).toPrecision(2));
+    if (pct === 0) return '+0.0%';
+    const dec = Math.max(0, 1 - Math.floor(Math.log10(Math.abs(pct))));
+    return (pct > 0 ? '+' : '') + pct.toFixed(dec) + '%';
+  }
+  function compare(obj, a, b) {
+    const tol = obj.tolerance || {};
+    const limit = 'relative' in tol ? tol.relative * Math.max(Math.abs(a), Math.abs(b)) : (tol.absolute || 0);
+    const diff = a - b;
+    if (Math.abs(diff) <= limit) return 'same';
+    const improved = obj.direction === 'minimize' ? diff < 0 : diff > 0;
+    return improved ? 'better' : 'worse';
+  }
+  function niceTicks(lo, hi, count) {
+    if (!(hi > lo)) { const pad = Math.abs(lo) * 0.05 || 1; lo -= pad; hi += pad; }
+    const raw = (hi - lo) / Math.max(1, count);
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((st) => st >= raw) || raw;
+    const start = Math.ceil(lo / step) * step;
+    const ticks = [];
+    for (let t = start; t <= hi + step * 1e-9; t += step) ticks.push(+t.toPrecision(12));
+    return ticks;
+  }
+  function axisFmt(v) {
+    const m = Math.abs(v);
+    if (m !== 0 && (m >= 1e5 || m < 1e-2)) {
+      const p = v.toExponential(2).split('e');
+      return p[0].replace(/\.?0+$/, '') + 'e' + parseInt(p[1], 10);
+    }
+    return String(+v.toPrecision(4));
+  }
+  function ago(ts) {
+    const t = Date.parse(ts);
+    if (isNaN(t)) return '';
+    const sec = Math.max(0, (Date.now() - t) / 1000);
+    if (sec < 90) return 'just now';
+    if (sec < 5400) return Math.round(sec / 60) + ' min ago';
+    if (sec < 172800) return Math.round(sec / 3600) + ' h ago';
+    return Math.round(sec / 86400) + ' days ago';
+  }
+
+  // -- the model -------------------------------------------------------------------
+
+  function model() {
+    const recs = S.records;
+    const cands = recs.filter((r) => r.type === 'candidate');
+    const byId = new Map(cands.map((c) => [c.id, c]));
+    const promoted = new Set(recs.filter((r) => r.type === 'event' && r.event === 'promote').map((r) => r.id));
+    const x = new Map();
+    const batchMarks = [];
+    let lastIter = 0;
+    for (const r of recs) {
+      if (r.type === 'candidate') {
+        if (r.by === 'human') x.set(r.id, lastIter + 0.4);
+        else { lastIter = r.iter || 0; x.set(r.id, lastIter); }
+      } else if (r.event === 'batch_start') {
+        batchMarks.push({ batch: r.batch, x: lastIter + 0.5, seq: r.seq });
+      }
+    }
+    const last = recs[recs.length - 1];
+    const front = last && last.derived ? last.derived.front : [];
+    const objectives = (S.meta && S.meta.objectives) || [];
+    return { recs, cands, byId, promoted, x, batchMarks, front, objectives, maxIter: lastIter };
+  }
+
+  function statusClass(c, m) {
+    if (c.by === 'human') return c.status === 'FAILED' ? 'st-FAILED' : (m.promoted.has(c.id) ? 'st-HUMANP' : 'st-HUMAN');
+    return 'st-' + (c.status || 'OTHER');
+  }
+  function lineOf(c) {
+    return (c.derived && c.derived.line) || (c.id + ' ' + c.status);
+  }
+
+  // -- header, stats, patterns ---------------------------------------------------------
+
+  function renderHeader(m) {
+    const meta = S.meta || {};
+    const st = meta.status || {};
+    $('run-name').textContent = 'loopkit run ' + (meta.run || st.run || '');
+    const pill = $('state-pill');
+    const live = S.source === 'live';
+    const stopped = live && st.stopped;
+    pill.className = 'pill ' + (S.source === 'sample' ? 'sample' : !live ? 'waiting' : stopped ? 'stopped' : 'running');
+    pill.textContent = S.source === 'sample' ? 'Sample data' : !live ? 'Waiting' : stopped ? 'Stopped' : 'Running';
+    const sub = $('subline');
+    sub.replaceChildren();
+    if (st.batch) {
+      sub.append(h('span', { text: 'Batch ' + st.batch + ' · iteration ' + st.batch_iter + (st.max_iters ? ' of ' + st.max_iters : '') }));
+      sub.append(h('span', { text: 'Stop: ' + (st.conditions || 'none') }));
+    } else if (live) {
+      sub.append(h('span', { text: 'No batch started yet' }));
+    }
+    if (meta.updated) sub.append(h('span', { title: meta.updated, text: 'Updated ' + ago(meta.updated) }));
+    const progress = $('progress');
+    progress.hidden = !(st.max_iters > 0);
+    if (st.max_iters > 0) $('progress-bar').style.width = Math.min(100, 100 * st.batch_iter / st.max_iters) + '%';
+    const reason = $('stop-reason');
+    reason.hidden = !stopped;
+    reason.textContent = stopped ? 'LOOPKIT-STOP | ' + st.stopped : '';
+
+    const banner = $('banner');
+    banner.replaceChildren();
+    if (S.source === 'sample') {
+      banner.append(h('strong', { text: 'Sample data' }), ' — the run has not started yet. Every candidate, value and idea on this page is invented to preview the layout; it will be replaced by the run’s ledger once c000 is scored.');
+      if (S.dbMissing) banner.append(h('div', { class: 'muted', text: 'This view cannot load the run’s data.' }));
+    } else if (S.source === 'waiting' || S.source === 'none') {
+      banner.append(S.dbMissing ? 'This view cannot load the run’s data. Open the monitor from claude.ai while signed in to the owner’s organization.' : 'Waiting for the run’s first records.');
+    }
+    banner.hidden = !banner.childNodes.length;
+
+    const counts = st.counts || {};
+    const stats = $('stats');
+    stats.replaceChildren();
+    const stat = (cls, label, value) => h('div', { class: 'stat ' + cls }, h('span', { class: 'label', text: label }), h('span', { class: 'num', text: String(value) }));
+    stats.append(
+      stat('kept', 'Kept', counts.KEPT || 0),
+      stat('', 'Reverted', counts.REVERTED || 0),
+      stat('failed', 'Failed', counts.FAILED || 0),
+      stat('human', 'Human', (counts.OBSERVED || 0) + (m.cands.filter((c) => c.by === 'human' && c.status === 'FAILED').length)),
+      stat('front', 'Front', (st.front || m.front || []).length),
+      stat('', 'Queued', ((st.queue || {}).eval || 0) + ((st.queue || {}).promote || 0)),
+    );
+    if (st.integrity_warnings) stats.append(stat('failed', 'Git warnings', st.integrity_warnings));
+    const latest = m.cands[m.cands.length - 1];
+    $('latest-line').textContent = latest ? lineOf(latest) : 'none yet';
+  }
+
+  function renderPatterns() {
+    const p = (S.meta && S.meta.patterns) || {};
+    const box = $('patterns');
+    box.replaceChildren();
+    if (!p.trend || !p.trend.length) return;
+    const proposers = h('div', { class: 'pattern' }, h('span', { class: 'label', text: 'Kept by proposer' }));
+    for (const row of p.proposers || []) {
+      const pct = row.total ? 100 * row.kept / row.total : 0;
+      proposers.append(h('div', { class: 'bar-row' },
+        h('span', { text: row.name }),
+        h('div', { class: 'track' }, h('div', { class: 'fill', style: 'width:' + pct + '%' })),
+        h('span', { class: 'val', text: row.kept + '/' + row.total })));
+    }
+    const files = h('div', { class: 'pattern' }, h('span', { class: 'label', text: 'Most changed files' }),
+      h('ul', { class: 'file-list' }, (p.files || []).map((f) => h('li', {}, h('code', { title: f.path, text: f.path }), h('span', { class: 'mono muted', text: String(f.count) })))));
+    const trend = h('div', { class: 'pattern' }, h('span', { class: 'label', text: 'Last ' + p.trend.length + ' iterations' }),
+      h('div', { class: 'trend' }, p.trend.map((t) => h('span', { class: 'chip ' + t, title: t, style: 'padding:0' }))));
+    if (p.failures && p.failures.length) {
+      trend.append(h('span', { class: 'muted', text: 'Failures: ' + p.failures.map((f) => f.reason + ' ' + f.count).join(', ') }));
+    }
+    box.append(proposers, files, trend);
+  }
+
+  // -- tooltip and linking ------------------------------------------------------------
+
+  function showTip(evt, c, m) {
+    const tip = $('tip');
+    tip.replaceChildren();
+    tip.append(h('div', {}, h('code', { text: c.id }), ' ', h('span', { class: 'chip ' + (c.status || ''), text: c.by === 'human' ? (m.promoted.has(c.id) ? 'promoted' : c.status) : c.status })));
+    if (c.idea) tip.append(h('div', { text: c.idea }));
+    if (c.objectives) {
+      for (const o of m.objectives) {
+        const v = c.objectives[o.name];
+        const base = c.parent_objectives && c.parent_objectives[o.name];
+        let extra = '';
+        if (typeof base === 'number' && base !== 0) extra = ' (' + fmtPct((v - base) / Math.abs(base)) + ' ' + compare(o, v, base) + ')';
+        tip.append(h('div', { class: 'mono', text: o.name + ' ' + fmt5(v) + (o.unit || '') + extra }));
+      }
+    } else if (c.reason) {
+      tip.append(h('div', { class: 'muted', text: c.reason }));
+    }
+    tip.hidden = false;
+    const pad = 14;
+    const rect = tip.getBoundingClientRect();
+    let left = evt.clientX + pad;
+    let top = evt.clientY + pad;
+    if (left + rect.width > window.innerWidth - 8) left = evt.clientX - rect.width - pad;
+    if (top + rect.height > window.innerHeight - 8) top = evt.clientY - rect.height - pad;
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = Math.max(8, top) + 'px';
+  }
+  function hideTip() { $('tip').hidden = true; }
+  function focusCandidate(id) {
+    const el = document.getElementById('cand-' + id);
+    if (!el) return;
+    el.open = true;
+    fillDetail(el);
+    S.open.add(id);
+    el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1400);
+  }
+  function markEvents(el, c, m) {
+    el.addEventListener('mouseenter', (e) => showTip(e, c, m));
+    el.addEventListener('mousemove', (e) => showTip(e, c, m));
+    el.addEventListener('mouseleave', hideTip);
+    el.addEventListener('click', () => { hideTip(); focusCandidate(c.id); });
+    return el;
+  }
+
+  // -- charts ------------------------------------------------------------------------
+
+  function frame(width, height, margin) {
+    const svg = s('svg', { viewBox: '0 0 ' + width + ' ' + height, width: width, height: height, role: 'img' });
+    return { svg, width, height, margin, iw: width - margin.l - margin.r, ih: height - margin.t - margin.b };
+  }
+  function linear(d0, d1, r0, r1) {
+    const span = d1 - d0 || 1;
+    return (v) => r0 + (v - d0) / span * (r1 - r0);
+  }
+  function drawAxes(f, sx, sy, xTicks, yTicks, xTitle, yTitle) {
+    const { svg, margin, iw, ih } = f;
+    const g = s('g', { transform: 'translate(' + margin.l + ',' + margin.t + ')' });
+    const grid = s('g', { class: 'grid' });
+    for (const t of yTicks) grid.append(s('line', { x1: 0, x2: iw, y1: sy(t), y2: sy(t) }));
+    g.append(grid);
+    const axis = s('g', { class: 'axis' });
+    axis.append(s('line', { x1: 0, x2: iw, y1: ih, y2: ih }), s('line', { x1: 0, x2: 0, y1: 0, y2: ih }));
+    for (const t of yTicks) axis.append(s('text', { class: 'tick-text', x: -8, y: sy(t) + 4, 'text-anchor': 'end', text: axisFmt(t) }));
+    for (const t of xTicks) axis.append(s('text', { class: 'tick-text', x: sx(t), y: ih + 16, 'text-anchor': 'middle', text: axisFmt(t) }));
+    axis.append(s('text', { class: 'axis-title', x: iw, y: ih + 32, 'text-anchor': 'end', text: xTitle }));
+    axis.append(s('text', { class: 'axis-title', x: 0, y: -8, 'text-anchor': 'start', text: yTitle }));
+    g.append(axis);
+    svg.append(g);
+    return g;
+  }
+  function pointShape(c, m, cx, cy, r) {
+    const cls = 'pt ' + statusClass(c, m);
+    const el = c.by === 'human'
+      ? s('rect', { class: cls, x: cx - r, y: cy - r, width: 2 * r, height: 2 * r, transform: 'rotate(45 ' + cx + ' ' + cy + ')' })
+      : s('circle', { class: cls, cx: cx, cy: cy, r: r });
+    return markEvents(el, c, m);
+  }
+  function crossShape(c, m, cx, cy, r) {
+    const el = s('path', { class: 'pt st-FAILED', d: 'M' + (cx - r) + ' ' + (cy - r) + 'L' + (cx + r) + ' ' + (cy + r) + 'M' + (cx + r) + ' ' + (cy - r) + 'L' + (cx - r) + ' ' + (cy + r) });
+    return markEvents(el, c, m);
+  }
+  function legendItem(svgChild, text) {
+    return h('span', {}, s('svg', { viewBox: '0 0 22 12', width: 22, height: 12 }, svgChild), text);
+  }
+
+  function renderMetricChart(m, width) {
+    const o = m.objectives[0];
+    $('chart-title').textContent = o.name + (o.unit ? ' (' + o.unit + ')' : '') + ' by iteration';
+    $('chart-controls').replaceChildren(h('span', { text: (o.direction === 'minimize' ? 'Lower' : 'Higher') + ' is better' }));
+    $('timeline').hidden = true;
+    const scored = m.cands.filter((c) => c.objectives && c.status !== 'FAILED');
+    if (!scored.length) return h('p', { class: 'empty', text: 'No scored candidates yet.' });
+    const values = scored.map((c) => c.objectives[o.name]);
+    const bests = m.recs.filter((r) => r.derived && typeof r.derived.best === 'number').map((r) => r.derived.best);
+    let lo = Math.min(...values, ...bests);
+    let hi = Math.max(...values, ...bests);
+    const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.02 || 1;
+    lo -= pad; hi += pad;
+    const height = Math.max(240, Math.min(380, Math.round(width * 0.5)));
+    const f = frame(width, height, { l: 64, r: 16, t: 22, b: 40 });
+    const maxX = Math.max(1, m.maxIter + 0.6);
+    const sx = linear(-0.5, maxX, 0, f.iw);
+    const sy = linear(lo, hi, f.ih, 0);
+    const xTicks = niceTicks(0, m.maxIter || 1, Math.max(2, Math.floor(f.iw / 70))).filter((t) => Number.isInteger(t));
+    const g = drawAxes(f, sx, sy, xTicks, niceTicks(lo, hi, 5).filter((t) => t >= lo && t <= hi), 'iteration', o.name);
+    for (const b of m.batchMarks) {
+      if (b.batch === 1) continue;
+      g.append(s('line', { class: 'batch-sep', x1: sx(b.x), x2: sx(b.x), y1: 0, y2: f.ih }));
+      g.append(s('text', { class: 'batch-text', x: sx(b.x) + 4, y: 10, text: 'BATCH ' + b.batch }));
+    }
+    // Best-so-far step line through the agent and baseline records.
+    let d = '';
+    let prev = null;
+    for (const r of m.recs) {
+      if (r.type !== 'candidate' || r.by === 'human' || !r.derived || typeof r.derived.best !== 'number') continue;
+      const px = sx(m.x.get(r.id));
+      const py = sy(r.derived.best);
+      d += prev === null ? 'M' + px + ' ' + py : 'H' + px + 'V' + py;
+      prev = py;
+    }
+    if (d) g.append(s('path', { class: 'best-line', d: d + 'H' + sx(maxX) }));
+    for (const c of m.cands) {
+      const cx = sx(m.x.get(c.id));
+      if (c.status === 'FAILED' || !c.objectives) g.append(crossShape(c, m, cx, f.ih - 6, 4));
+      else g.append(pointShape(c, m, cx, sy(c.objectives[o.name]), c.by === 'human' ? 4.2 : 4.5));
+    }
+    return f.svg;
+  }
+
+  function staircase(points, sx, sy) {
+    if (!points.length) return '';
+    const sorted = points.slice().sort((a, b) => a[0] - b[0]);
+    let d = 'M' + sx(sorted[0][0]) + ' ' + sy(sorted[0][1]);
+    for (let i = 1; i < sorted.length; i++) d += 'H' + sx(sorted[i][0]) + 'V' + sy(sorted[i][1]);
+    return d;
+  }
+
+  function renderPareto(m, width) {
+    const objs = m.objectives;
+    if (S.xObj >= objs.length) S.xObj = 0;
+    if (S.yObj >= objs.length || S.yObj === S.xObj) S.yObj = S.xObj === 0 ? 1 : 0;
+    const ox = objs[S.xObj];
+    const oy = objs[S.yObj];
+    $('chart-title').textContent = 'Pareto front: ' + ox.name + ' vs ' + oy.name;
+    const controls = $('chart-controls');
+    controls.replaceChildren();
+    if (objs.length > 2) {
+      const pick = (id, label, value, onChange) => h('label', {}, label + ' ',
+        h('select', { id: id, onchange: (e) => { onChange(+e.target.value); render(); } },
+          objs.map((o, i) => h('option', { value: i, selected: i === value, text: o.name }))));
+      controls.append(pick('x-obj', 'x', S.xObj, (v) => { S.xObj = v; }), pick('y-obj', 'y', S.yObj, (v) => { S.yObj = v; }));
+    }
+    const seqs = m.recs.map((r) => r.seq);
+    const maxSeq = seqs.length ? seqs[seqs.length - 1] : 0;
+    const slider = $('slider');
+    $('timeline').hidden = seqs.length < 2;
+    slider.min = String(seqs[0] || 0);
+    slider.max = String(maxSeq);
+    const at = S.sliderSeq === null ? maxSeq : Math.min(S.sliderSeq, maxSeq);
+    slider.value = String(at);
+    const visible = m.recs.filter((r) => r.seq <= at);
+    const lastRec = visible[visible.length - 1];
+    const frontIds = new Set(lastRec && lastRec.derived ? lastRec.derived.front : []);
+    const lastCand = visible.filter((r) => r.type === 'candidate').pop();
+    $('slider-label').textContent = at === maxSeq ? 'now' : 'as of ' + (lastCand ? lastCand.id : 'seq ' + at);
+
+    const pts = visible.filter((r) => r.type === 'candidate' && r.objectives && r.status !== 'FAILED');
+    if (!pts.length) return h('p', { class: 'empty', text: 'No scored candidates yet.' });
+    const xs = m.cands.filter((c) => c.objectives && c.status !== 'FAILED').map((c) => c.objectives[ox.name]);
+    const ys = m.cands.filter((c) => c.objectives && c.status !== 'FAILED').map((c) => c.objectives[oy.name]);
+    const pad = (a) => { const lo = Math.min(...a); const hi = Math.max(...a); const p = (hi - lo) * 0.08 || Math.abs(hi) * 0.02 || 1; return [lo - p, hi + p]; };
+    const [x0, x1] = pad(xs);
+    const [y0, y1] = pad(ys);
+    const height = Math.max(260, Math.min(420, Math.round(width * 0.6)));
+    const f = frame(width, height, { l: 64, r: 20, t: 22, b: 40 });
+    const sx = linear(x0, x1, 0, f.iw);
+    const sy = linear(y0, y1, f.ih, 0);
+    const g = drawAxes(f, sx, sy, niceTicks(x0, x1, Math.max(3, Math.floor(f.iw / 90))).filter((t) => t >= x0 && t <= x1),
+      niceTicks(y0, y1, 5).filter((t) => t >= y0 && t <= y1), ox.name + (ox.unit ? ' (' + ox.unit + ')' : ''), oy.name + (oy.unit ? ' (' + oy.unit + ')' : ''));
+    // Fronts at the start of earlier batches, faded.
+    for (const b of m.batchMarks) {
+      if (b.seq > at) continue;
+      const rec = m.recs.find((r) => r.seq === b.seq);
+      const ids = rec && rec.derived ? rec.derived.front : [];
+      const fp = ids.map((id) => m.byId.get(id)).filter((c) => c && c.objectives).map((c) => [c.objectives[ox.name], c.objectives[oy.name]]);
+      if (fp.length) g.append(s('path', { class: 'past-front', d: staircase(fp, sx, sy) }));
+    }
+    const frontPts = pts.filter((c) => frontIds.has(c.id)).map((c) => [c.objectives[ox.name], c.objectives[oy.name]]);
+    if (frontPts.length) g.append(s('path', { class: 'front-line', d: staircase(frontPts, sx, sy) }));
+    for (const c of pts) {
+      const cx = sx(c.objectives[ox.name]);
+      const cy = sy(c.objectives[oy.name]);
+      const onFront = frontIds.has(c.id);
+      const el = pointShape(c, m, cx, cy, onFront ? 5.5 : 4);
+      if (!onFront && c.by !== 'human' && c.status !== 'BASELINE') el.setAttribute('class', 'pt st-OTHER');
+      if (onFront) el.classList.add('on-front');
+      g.append(el);
+      if (c.id === 'c000' || c === lastCand) {
+        g.append(s('text', { class: 'mark-label', x: cx + 8, y: cy - 8, text: c.id }));
+      }
+      if (c === lastCand) g.append(s('circle', { class: 'latest-ring', cx: cx, cy: cy, r: 10 }));
+    }
+    // Arrow toward the better corner.
+    const bx = ox.direction === 'minimize' ? 0 : f.iw;
+    const by = oy.direction === 'minimize' ? f.ih : 0;
+    const dx = ox.direction === 'minimize' ? 1 : -1;
+    const dy = oy.direction === 'minimize' ? -1 : 1;
+    const ax = bx + dx * 58;
+    const ay = by + dy * 34;
+    g.append(s('path', { class: 'better-arrow', d: 'M' + ax + ' ' + ay + 'L' + (bx + dx * 14) + ' ' + (by + dy * 8) }));
+    g.append(s('path', { class: 'better-arrow', d: 'M' + (bx + dx * 14) + ' ' + (by + dy * 8) + 'l' + (dx * 9) + ' 0M' + (bx + dx * 14) + ' ' + (by + dy * 8) + 'l0 ' + (dy * 9) }));
+    g.append(s('text', { class: 'better', x: ax + dx * 4, y: ay + dy * 4 + (dy > 0 ? 8 : 0), 'text-anchor': dx > 0 ? 'start' : 'end', text: 'BETTER' }));
+    return f.svg;
+  }
+
+  function renderLegend(multi) {
+    const lg = $('legend');
+    lg.replaceChildren(
+      legendItem(s('circle', { class: 'st-KEPT', cx: 11, cy: 6, r: 4.5 }), 'Kept'),
+      legendItem(s('circle', { class: multi ? 'st-OTHER' : 'st-REVERTED', cx: 11, cy: 6, r: 4.5 }), multi ? 'Not on the front' : 'Reverted'),
+      legendItem(s('path', { class: 'st-FAILED', d: 'M7 2L15 10M15 2L7 10' }), multi ? 'Failed (not plotted)' : 'Failed'),
+      legendItem(s('rect', { class: 'st-HUMAN', x: 7.5, y: 2.5, width: 7, height: 7, transform: 'rotate(45 11 6)' }), 'Human'),
+      legendItem(s('rect', { class: 'st-HUMANP', x: 7.5, y: 2.5, width: 7, height: 7, transform: 'rotate(45 11 6)' }), 'Human, promoted'),
+      multi ? legendItem(s('path', { class: 'front-line', d: 'M1 10H11V2H21' }), 'Front') : legendItem(s('path', { class: 'best-line', d: 'M1 6H21' }), 'Best so far'),
+    );
+    if (multi) lg.append(legendItem(s('path', { class: 'past-front', d: 'M1 10H11V2H21' }), 'Front at each batch start'));
+  }
+
+  function renderChart(m) {
+    const box = $('chart');
+    const width = Math.max(300, Math.floor(box.clientWidth || 640));
+    const multi = m.objectives.length > 1;
+    box.replaceChildren(m.objectives.length ? (multi ? renderPareto(m, width) : renderMetricChart(m, width)) : h('p', { class: 'empty', text: 'No data yet.' }));
+    renderLegend(multi);
+  }
+
+  // -- evolve tree ----------------------------------------------------------------------
+
+  function renderTree(m) {
+    const rows = m.cands.filter((c) => !(S.hideFailed && c.status === 'FAILED'));
+    const box = $('tree');
+    if (!rows.length) { box.replaceChildren(h('p', { class: 'empty', text: 'No candidates yet.' })); return; }
+    const rowOf = new Map(rows.map((c, i) => [c.id, i]));
+    const lastChild = new Map();
+    for (const c of rows) for (const p of c.parents || []) if (rowOf.has(p)) lastChild.set(p, Math.max(lastChild.get(p) || 0, rowOf.get(c.id)));
+    const laneOf = new Map();
+    const lanes = [];  // lane -> {id, until}
+    rows.forEach((c, i) => {
+      for (let l = 0; l < lanes.length; l++) if (lanes[l] && lanes[l].until < i) lanes[l] = null;
+      let lane = -1;
+      const p = (c.parents || [])[0];
+      if (p !== undefined && laneOf.has(p)) {
+        const pl = laneOf.get(p);
+        if (lanes[pl] && lanes[pl].id === p && !lanes[pl].continued) { lane = pl; lanes[pl].continued = true; }
+      }
+      if (lane < 0) {
+        lane = lanes.findIndex((x) => !x);
+        if (lane < 0) { lane = lanes.length; lanes.push(null); }
+      }
+      const until = Math.max(i, lastChild.get(c.id) || i, lanes[lane] && lanes[lane].until || 0);
+      lanes[lane] = { id: c.id, until: until, continued: false };
+      laneOf.set(c.id, lane);
+    });
+    const ROW = 24;
+    const LANE = 14;
+    const width = (lanes.length) * LANE + 12;
+    const cx = (id) => 8 + laneOf.get(id) * LANE;
+    const cy = (id) => rowOf.get(id) * ROW + ROW / 2;
+    const svg = s('svg', { width: width, height: rows.length * ROW, viewBox: '0 0 ' + width + ' ' + rows.length * ROW });
+    for (const c of rows) {
+      (c.parents || []).forEach((p, k) => {
+        if (!rowOf.has(p)) return;
+        const x1 = cx(p), y1 = cy(p), x2 = cx(c.id), y2 = cy(c.id);
+        const mid = (y1 + y2) / 2;
+        const d = x1 === x2 ? 'M' + x1 + ' ' + y1 + 'V' + y2 : 'M' + x1 + ' ' + y1 + 'C' + x1 + ' ' + (y2 - ROW * 0.8) + ' ' + x2 + ' ' + (y2 - ROW * 0.8) + ' ' + x2 + ' ' + y2;
+        svg.append(s('path', { class: 'edge' + (k > 0 ? ' merge' : ''), d: d }));
+      });
+    }
+    const frontSet = new Set(m.front);
+    for (const c of rows) {
+      const r = c.status === 'FAILED' ? 3.5 : 5;
+      let node;
+      if (c.status === 'FAILED') node = crossShape(c, m, cx(c.id), cy(c.id), 3.5);
+      else if (c.by === 'human') { node = pointShape(c, m, cx(c.id), cy(c.id), 4.6); node.classList.add('node-human'); }
+      else node = pointShape(c, m, cx(c.id), cy(c.id), r);
+      if (frontSet.has(c.id)) svg.append(s('circle', { class: 'on-front', cx: cx(c.id), cy: cy(c.id), r: 8.5, fill: 'none' }));
+      svg.append(node);
+    }
+    const tree = h('div', { class: 'tree', style: 'min-width:' + (width + 180) + 'px' }, svg);
+    for (const c of rows) {
+      const row = h('div', { class: 'tree-row', style: 'padding-left:' + (width + 4) + 'px', tabindex: '0', role: 'button',
+        'aria-label': c.id + ' ' + c.status, onclick: () => focusCandidate(c.id), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); focusCandidate(c.id); } } },
+        h('code', { text: c.id }), h('span', { class: 'chip ' + c.status, text: c.by === 'human' && m.promoted.has(c.id) ? 'promoted' : c.status }),
+        h('span', { class: 'idea', text: c.idea || '' }));
+      tree.append(row);
+    }
+    const scroll = box.scrollTop;
+    box.replaceChildren(tree);
+    box.scrollTop = scroll;
+  }
+
+  // -- candidate list -------------------------------------------------------------------
+
+  function kv(pairs) {
+    const dl = h('dl', { class: 'kv' });
+    for (const [k, v] of pairs) {
+      if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)) continue;
+      dl.append(h('dt', { text: k }), h('dd', {}, v instanceof Node ? v : String(v)));
+    }
+    return dl;
+  }
+  function fillDetail(el) {
+    if (el.dataset.filled) return;
+    const m = model();
+    const c = m.byId.get(el.dataset.id);
+    if (!c) return;
+    el.dataset.filled = '1';
+    const body = h('div', { class: 'detail' });
+    body.append(kv([
+      ['Idea', c.idea],
+      ['Proposed by', (c.proposed_by || []).join(', ')],
+      ['Learned', c.learned],
+      ['Reason', c.reason],
+    ]));
+    if (c.objectives) {
+      const base = c.parent_objectives || {};
+      const vs = c.by === 'human' ? 'c000' : ((c.parents || [])[0] || '');
+      const table = h('table', {}, h('thead', {}, h('tr', {}, h('th', { text: 'Objective' }), h('th', { text: 'Value' }), h('th', { text: vs ? 'vs ' + vs : 'Before' }), h('th', { text: 'Change' }))));
+      const tb = h('tbody');
+      for (const o of m.objectives) {
+        const v = c.objectives[o.name];
+        const b = base[o.name];
+        const has = typeof b === 'number';
+        const cmp = has ? compare(o, v, b) : '';
+        tb.append(h('tr', {}, h('td', { text: o.name + (o.unit ? ' (' + o.unit + ')' : '') }), h('td', { class: 'num', text: fmt5(v) }),
+          h('td', { class: 'num', text: has ? fmt5(b) : '' }),
+          h('td', { class: 'num cmp-' + cmp, text: has && b !== 0 ? fmtPct((v - b) / Math.abs(b)) + ' ' + cmp : '' })));
+      }
+      table.append(tb);
+      body.append(h('div', { class: 'table-scroll' }, table));
+    }
+    const cons = Object.entries(c.constraints || {});
+    if (cons.length) {
+      const table = h('table', {}, h('thead', {}, h('tr', {}, h('th', { text: 'Constraint' }), h('th', { text: 'Result' }), h('th', { text: 'Value' }), h('th', { text: 'Detail' }))));
+      const tb = h('tbody');
+      for (const [name, r] of cons) {
+        tb.append(h('tr', {}, h('td', { text: name }), h('td', { class: r && r.pass ? 'cmp-better' : 'cmp-worse', text: r && r.pass ? 'pass' : 'fail' }),
+          h('td', { class: 'num', text: r && r.value !== undefined ? JSON.stringify(r.value) : '' }), h('td', { text: (r && r.detail) || '' })));
+      }
+      table.append(tb);
+      body.append(h('div', { class: 'table-scroll' }, table));
+    }
+    const extra = Object.entries(c.extra || {});
+    const origin = c.origin || {};
+    const files = (c.files || []).slice();
+    if (c.files_total > files.length) files.push('+' + (c.files_total - files.length) + ' more');
+    body.append(kv([
+      ['Extra', extra.length ? h('code', { text: extra.map(([k, v]) => k + ' = ' + JSON.stringify(v)).join('\n'), style: 'white-space:pre-wrap' }) : null],
+      ['Files', files.length ? h('code', { text: files.join('\n'), style: 'white-space:pre-wrap' }) : null],
+      ['Parents', (c.parents || []).join(' + ')],
+      ['Commit', c.sha ? h('code', { text: c.sha }) : null],
+      ['Ref', c.by === 'human' ? (origin.ref || '') + (origin.ref ? ' @ ' : '') + (origin.sha || '').slice(0, 12) : 'refs/evolve/' + ((S.meta && S.meta.run) || c.run || '') + '/' + c.id],
+      ['Merge conflicts', (c.conflicts || []).join(', ')],
+      ['Scoring time', typeof c.duration_s === 'number' ? c.duration_s.toFixed(1) + ' s' : null],
+      ['Recorded', c.ts],
+    ]));
+    el.append(body);
+  }
+  function renderList(m) {
+    const list = $('list');
+    const items = m.cands.slice().reverse();
+    $('list-count').textContent = items.length + ' candidate' + (items.length === 1 ? '' : 's') + ', newest first';
+    const frag = document.createDocumentFragment();
+    for (const c of items) {
+      const el = h('details', { class: 'cand', id: 'cand-' + c.id, 'data-id': c.id, open: S.open.has(c.id) },
+        h('summary', {}, h('span', { class: 'chip ' + c.status, text: c.by === 'human' && m.promoted.has(c.id) ? 'promoted' : c.status }), h('code', { title: lineOf(c), text: lineOf(c) })));
+      el.addEventListener('toggle', () => {
+        if (el.open) { S.open.add(c.id); fillDetail(el); } else S.open.delete(c.id);
+      });
+      if (el.open) fillDetail(el);
+      frag.append(el);
+    }
+    list.replaceChildren(frag);
+    if (!items.length) list.append(h('p', { class: 'empty', text: 'No candidates yet.' }));
+  }
+
+  // -- rendering and data -----------------------------------------------------------------
+
+  let rendering = false;
+  function render() {
+    if (rendering) return;
+    rendering = true;
+    try {
+      const m = model();
+      renderHeader(m);
+      renderPatterns();
+      renderChart(m);
+      renderTree(m);
+      renderList(m);
+    } finally {
+      rendering = false;
+    }
+  }
+
+  function useSample() {
+    S.source = 'sample';
+    S.meta = SAMPLE.meta;
+    S.records = SAMPLE.records.slice().sort((a, b) => a.seq - b.seq);
+  }
+  function applyChunks() {
+    const all = [];
+    for (const doc of S.chunks.values()) for (const r of doc.records || []) all.push(r);
+    all.sort((a, b) => a.seq - b.seq);
+    const seen = new Set();
+    S.records = all.filter((r) => (seen.has(r.seq) ? false : (seen.add(r.seq), true)));
+  }
+
+  function play() {
+    const slider = $('slider');
+    if (S.playing) { clearInterval(S.playing); S.playing = null; $('play').textContent = 'Play'; return; }
+    const max = +slider.max;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { S.sliderSeq = null; render(); return; }
+    S.sliderSeq = +slider.min;
+    $('play').textContent = 'Pause';
+    S.playing = setInterval(() => {
+      S.sliderSeq += 1;
+      if (S.sliderSeq >= max) { S.sliderSeq = null; clearInterval(S.playing); S.playing = null; $('play').textContent = 'Play'; }
+      render();
+    }, 180);
+  }
+
+  $('hide-failed').addEventListener('change', (e) => { S.hideFailed = e.target.checked; render(); });
+  $('slider').addEventListener('input', (e) => {
+    const v = +e.target.value;
+    S.sliderSeq = v >= +e.target.max ? null : v;
+    render();
+  });
+  $('play').addEventListener('click', play);
+  let resizeTimer = null;
+  if (window.ResizeObserver) {
+    let lastWidth = 0;
+    new ResizeObserver(() => {
+      const w = $('chart').clientWidth;
+      if (Math.abs(w - lastWidth) < 4) return;
+      lastWidth = w;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => renderChart(model()), 120);
+    }).observe($('chart'));
+  }
+  setInterval(() => { if (S.meta) renderHeader(model()); }, 60000);
+
+  if (SAMPLE) useSample();
+  render();
+
+  async function connect() {
+    const claude = window.claude;
+    const db = claude && claude.use ? await claude.use('db') : null;
+    if (!db) { S.dbMissing = true; if (!SAMPLE) S.source = 'none'; render(); return; }
+    db.doc('meta/current').onSnapshot((snap) => {
+      if (snap.exists) {
+        S.meta = snap.data();
+        S.source = 'live';
+        applyChunks();
+      } else if (SAMPLE) {
+        useSample();
+      } else {
+        S.meta = null;
+        S.records = [];
+        S.source = 'waiting';
+      }
+      render();
+    }, () => { S.dbMissing = true; render(); });
+    db.collection('records').onSnapshot((snap) => {
+      S.chunks = new Map(snap.docs.filter((d) => d.exists).map((d) => [d.id, d.data()]));
+      if (S.source === 'live') { applyChunks(); render(); }
+    }, () => { S.dbMissing = true; render(); });
+  }
+  connect();
+})();
+</script>
