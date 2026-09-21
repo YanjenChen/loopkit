@@ -195,7 +195,7 @@ has '"submodule": true' "eval worktree has the submodule"
 # ---------------------------------------------------------------------------
 printf '\n--- iterations: KEPT, REVERTED, FAILED ---\n'
 
-GOAL='/goal 重複執行 /loopkit:iter（停止條件：最多 8 輪，由 loopkit 判斷）'
+GOAL='/goal Run /loopkit:iter repeatedly (stop conditions: at most 8 iterations; loopkit decides)'
 lk "$AGENT" batch start --text "$GOAL" --conditions '{"max_iters": 8}'
 has "BATCH 1 | started | stop: max_iters=8" "batch starts"
 lk "$AGENT" batch start --text "$GOAL" --conditions '{"max_iters": 8}'

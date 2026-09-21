@@ -8,7 +8,7 @@
 # wirelength (hpwl) until cells overlap (illegal); a shorter sleep lowers the
 # runtime. The repository has a submodule and no .loopkit/ yet, so
 # /loopkit:init can set everything up from a request such as
-# "優化hpwl與runtime，約束是cell不能重疊".
+# "optimize hpwl and runtime; cells must not overlap".
 set -euo pipefail
 
 DIR="${1:?usage: make-toy-placer.sh <dir>}"

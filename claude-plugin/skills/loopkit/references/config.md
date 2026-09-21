@@ -6,12 +6,12 @@ a `description`.
 
 ## Example
 
-The user said only "優化hpwl與runtime"; init filled in the rest and the user confirmed:
+The user said only "optimize hpwl and runtime"; init filled in the rest and the user confirmed:
 
 ```json
 {
   "schema": 1,
-  "source": "優化hpwl與runtime",
+  "source": "optimize hpwl and runtime",
   "objectives": [
     {"name": "hpwl", "direction": "minimize", "tolerance": {"relative": 0.001}, "unit": "",
      "description": "total half-perimeter wirelength of the final placement"},

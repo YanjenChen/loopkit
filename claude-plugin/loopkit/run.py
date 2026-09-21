@@ -810,14 +810,15 @@ class Run(object):
 
     def _print_next(self):
         example = self.config['objectives'][0]
-        below = '低於' if example['direction'] == 'minimize' else '高於'
+        below = 'below' if example['direction'] == 'minimize' else 'above'
         say('NEXT')
         say('  1. Open the agent worktree in a new VS Code window:  code %s' % self.paths.agent)
         say('  2. Start Claude Code there in auto mode and paste one prompt (fill in the stop conditions):')
-        say('     /goal 重複執行 /loopkit:iter（停止條件：<例如：最多 20 輪、連續 5 輪沒有進步，或 %s %s <目標值>>，'
-            '由 loopkit 判斷），直到輸出出現 LOOPKIT-STOP。單一輪 REVERTED 或 FAILED 不代表目標不可能達成。' % (example['name'], below))
-        say('     /loop /loopkit:iter（停止條件：<例如：最多 50 輪或連續 8 輪沒有進步>，由 loopkit 判斷；'
-            '輸出出現 LOOPKIT-STOP 時停止 loop）')
+        say('     /goal Run /loopkit:iter repeatedly (stop conditions: <e.g. at most 20 iterations, 5 iterations in a '
+            'row without improvement, or %s %s <target>>; loopkit decides) until the output shows LOOPKIT-STOP. '
+            'A single REVERTED or FAILED iteration does not mean the goal is impossible.' % (example['name'], below))
+        say('     /loop /loopkit:iter (stop conditions: <e.g. at most 50 iterations, or 8 in a row without improvement>; '
+            'loopkit decides; stop the loop when the output shows LOOPKIT-STOP)')
         say('  3. To stop a batch early, run /loopkit:stop in your own session (or press Esc in the run window,'
             ' then /goal clear).')
 

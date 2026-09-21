@@ -18,8 +18,8 @@ Rules for the whole iteration:
   ends.
 - Edit files only inside this worktree and inside the scope that `loopkit checkout` prints.
 - A command that prints `LOOPKIT-STOP | <reason>` ends the iteration: go to **Stop**.
-- If the user sends a message during the run asking to stop (for example `/goal clear`,
-  "stop", "停"), run `loopkit batch stop --reason "<their words>"` at once and go to
+- If the user sends a message during the run asking to stop (for example `/goal clear`, or
+  "stop" in any language), run `loopkit batch stop --reason "<their words>"` at once and go to
   **Stop**. A slash command typed while you are working reaches you as text, not as a
   command, so this is how it takes effect.
 - A command that prints `PENDING` is still scoring: run `loopkit wait` (again, if it prints

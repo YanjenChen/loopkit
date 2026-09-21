@@ -1,99 +1,99 @@
 # loopkit
 
-loopkit 是一個 Claude Code plugin，讓 `/goal` 或 `/loop` 在任何 repo 上反覆優化程式碼：每一輪分析目前的程式碼和演化歷史、提出一個改法、實作、用你的評分腳本評分，只有真的變好的版本才會留在前緣上。
+loopkit is a Claude Code plugin that lets `/goal` or `/loop` optimize the code of any repository, over and over. Each iteration analyzes the current code and its evolution history, proposes one change, implements it and scores it with your score script. Only versions that actually get better stay on the front.
 
-它為長時間、無人值守的執行而設計，例如整夜優化一個 GPU placer（C++/CUDA/LibTorch/Python，CMake），也可以用在程式作業等任何有評分方式的專案。
+It is built for long, unattended runs, such as optimizing a GPU placer (C++/CUDA/LibTorch/Python, CMake) overnight. It also works for coursework or any other project you can score.
 
-- **固定格式的迭代**：每一輪由 `/loopkit:iter` 執行，開頭和結尾由框架固定，中段的 workflow 可以是單一 agent，或多個 analyst 加上一個 decider。
-- **多目標**：支援多個優化目標，以容忍度判斷好壞，維護 Pareto 前緣。
-- **你可以同時開發**：run 在獨立的 worktree 和資料目錄裡進行，不動你的工作目錄。你的 commit 也可以送進來評估，再決定要不要加入演化。
-- **評分完整性**：評分腳本和 benchmark 在建立 run 時固定成快照；範圍檢查、權限規則、hook 和竄改偵測防止 agent 改到不該改的東西。
-- **ledger 和 monitor**：所有結果寫進一份 append-only、有 hash chain 的 ledger；monitor 是一個 Claude artifact，顯示前緣、evolve tree 和每個候選的細節。
+- **Fixed-format iterations**: `/loopkit:iter` runs each iteration. The framework fixes its head and tail; the workflow in the middle is a single agent, or several analysts plus a decider.
+- **Multiple objectives**: objectives are compared within a tolerance, and a Pareto front is maintained.
+- **Keep developing alongside**: a run works in its own worktrees and data directory and never touches your working tree. Your own commits can be sent in for evaluation, and you decide whether they join the evolution.
+- **Scoring integrity**: the score script and benchmarks are frozen into a snapshot when the run is created. A scope check, permission rules, hooks and tamper detection keep the agent away from what it must not change.
+- **Ledger and monitor**: every result goes into an append-only, hash-chained ledger. The monitor is a Claude artifact that shows the front, the evolve tree and the details of every candidate.
 
-## 需求
+## Requirements
 
-- Claude Code 2.1.91 以上（plugin 的 `bin/` 會加進 Bash 的 PATH）
-- git 2.31 以上、Python 3.8 以上，只用標準函式庫
-- Linux 或 WSL；不需要 Docker
+- Claude Code 2.1.91 or newer (the plugin's `bin/` is added to the Bash PATH)
+- git 2.31 or newer, Python 3.8 or newer; standard library only
+- Linux or WSL; no Docker needed
 
-## 安裝
+## Installation
 
-在 Claude Code（例如 VS Code extension）執行 `/plugins`，在 Marketplaces 分頁加入 marketplace，再以 user scope 安裝 `loopkit`：
+In Claude Code (for example the VS Code extension), run `/plugins`, add the marketplace in the Marketplaces tab, then install `loopkit` at user scope:
 
 ```
 /plugin marketplace add YanjenChen/loopkit
 /plugin install loopkit@loopkit
 ```
 
-- **開發 loopkit 本身**：改為加入本機路徑（這個 repo 的根目錄）：`/plugin marketplace add /path/to/loopkit`。安裝時，Claude Code 會把 plugin 複製到 `~/.claude/plugins/cache/`，所以修改 `claude-plugin/` 之後要更新：
+- **Developing loopkit itself**: add the local path (the root of this repository) instead: `/plugin marketplace add /path/to/loopkit`. Claude Code copies the plugin into `~/.claude/plugins/cache/` on install, so after changing `claude-plugin/`, update it:
 
   ```
   claude plugin marketplace update loopkit
-  claude plugin update loopkit@loopkit      # project scope 安裝的話，加 --scope project
+  claude plugin update loopkit@loopkit      # add --scope project for a project-scope install
   ```
 
-  然後重開 session。
-- **從 GitHub 安裝的**：push 之後執行上面同樣的兩行指令。
-- **scope**：建議用 user scope。用 project scope 也可以，run 的 worktree 會自行啟用 loopkit。
+  Then restart the session.
+- **Installed from GitHub**: after a push, run the same two commands.
+- **Scope**: user scope is recommended. Project scope works too; the run's worktree enables loopkit by itself.
 
-run 的資料放在 `~/loopkit-runs/<repo>/<run>/`（可以用環境變數 `LOOPKIT_DATA_DIR` 改到別的地方），不在 plugin 的資料目錄裡，所以更新、重裝或解除安裝 loopkit 都不會刪掉 run。要刪除 run，用 `loopkit run remove <name> --yes`。
+Runs live in `~/loopkit-runs/<repo>/<run>/` (set `LOOPKIT_DATA_DIR` to put them elsewhere), not in the plugin's data directory, so updating, reinstalling or uninstalling loopkit never deletes a run. To delete a run, use `loopkit run remove <name> --yes`.
 
-## 一次 run 的流程
+## A run, step by step
 
-1. **設定**：在你的 repo 執行 `/loopkit:init <要優化什麼>`，例如 `/loopkit:init 優化hpwl與runtime`。init 會分析 repo、盤問你的描述、產生 loopkit 設定（`.loopkit/config.json`）和評分腳本、試跑、發佈 monitor 讓你確認，最後建立 run 並為 baseline（c000）評分。
-2. **啟動**：用 init 印出的指令，在新的 VS Code 視窗開啟 run 的 agent worktree，用 auto mode 啟動 Claude Code，貼上 init 印出的 prompt 之一：
+1. **Set up**: in your repository, run `/loopkit:init <what to optimize>`, for example `/loopkit:init optimize hpwl and runtime`. init analyzes the repository, questions your request, generates the loopkit config (`.loopkit/config.json`) and the score script, trial-runs it, and publishes the monitor for you to confirm. Finally it creates the run and scores the baseline (c000).
+2. **Start**: with the command init prints, open the run's agent worktree in a new VS Code window, start Claude Code there in auto mode, and paste one of the prompts init prints:
 
    ```
-   /goal 重複執行 /loopkit:iter（停止條件：最多 20 輪、連續 5 輪沒有進步，或 hpwl 低於 1.0e6，由 loopkit 判斷），直到輸出出現 LOOPKIT-STOP。單一輪 REVERTED 或 FAILED 不代表目標不可能達成。
-   /loop /loopkit:iter（停止條件：最多 50 輪或連續 8 輪沒有進步，由 loopkit 判斷；輸出出現 LOOPKIT-STOP 時停止 loop）
+   /goal Run /loopkit:iter repeatedly (stop conditions: at most 20 iterations, 5 iterations in a row without improvement, or hpwl below 1.0e6; loopkit decides) until the output shows LOOPKIT-STOP. A single REVERTED or FAILED iteration does not mean the goal is impossible.
+   /loop /loopkit:iter (stop conditions: at most 50 iterations, or 8 in a row without improvement; loopkit decides; stop the loop when the output shows LOOPKIT-STOP)
    ```
 
-   停止條件由 loopkit 判斷：輪數上限、plateau（連續 N 輪沒有 KEPT）、優化目標的門檻。達成時框架印出 `LOOPKIT-STOP`，`/goal` 和 `/loop` 都會停下來。之後想再跑一批，就用不同的 prompt 再下一次。
+   loopkit decides the stop conditions: a number of iterations, a plateau (N iterations in a row without KEPT), and objective thresholds. When one is met, the framework prints `LOOPKIT-STOP`, and both `/goal` and `/loop` stop. To run another batch later, start again with a different prompt.
 
-   想提早停止時，在你自己的 session 執行 `/loopkit:stop`：run 會在幾秒內印出 `LOOPKIT-STOP` 並結束。也可以在 run 的視窗按 Esc 中斷目前這一輪，再輸入 `/goal clear`；agent 工作中直接輸入的 `/goal clear` 只會被當成一般訊息。
-3. **同時開發**：你繼續在自己的工作目錄開發。想讓某個 commit 被評估，在你自己的 session 執行 `/loopkit:request-eval <commit>`；它會在下一輪開頭被評分，成為 `hNNN`，預設只觀察。要讓它加入演化，執行 `/loopkit:promote <hNNN>`。
-4. **觀察**：從 monitor 看進度，或執行 `/loopkit:status`。
-5. **取回結果**：`/loopkit:adopt <id>` 在你的 repo 建立一個指向該候選的 branch，由你自行檢視和合併。
+   To stop early, run `/loopkit:stop` in your own session: the run prints `LOOPKIT-STOP` within seconds and ends. You can also press Esc in the run's window to interrupt the current iteration and then enter `/goal clear`; a `/goal clear` typed while the agent is working only reaches it as an ordinary message.
+3. **Keep developing**: carry on in your own working tree. To have a commit evaluated, run `/loopkit:request-eval <commit>` in your own session; it is scored at the head of the next iteration as `hNNN` and is only observed by default. To let it join the evolution, run `/loopkit:promote <hNNN>`.
+4. **Watch**: follow progress on the monitor, or run `/loopkit:status`.
+5. **Take results back**: `/loopkit:adopt <id>` creates a branch in your repository at that candidate, for you to review and merge.
 
-要改優化目標或評分方式時，重新執行 `/loopkit:init`，它會建立新的 run；舊 run 的 ledger 和 ref 都會保留。
+To change the objectives or the scoring later, run `/loopkit:init` again. It creates a new run; the old run's ledger and refs are kept.
 
-## 一輪 iter
+## One iteration
 
-| 階段 | 內容 |
+| Stage | What happens |
 |---|---|
-| 開頭（固定） | 完整性檢查 → 登錄並檢查停止條件 → 處理你送來的請求 → 印出 evolve 狀態 → 選 parent（一個，或兩個做合併） |
-| 中段（設定決定） | single：agent 自己分析並選一個改法。multi：多個唯讀 analyst 並行提案，decider 盲評選出一個，選用的 critic 再挑戰一次 |
-| 結尾（固定） | 實作 → precheck（快速編譯、自我修復）→ 評分 → 記錄（一行 ITER）→ 更新 monitor |
+| Head (fixed) | integrity check → register and check the stop conditions → process your requests → print the evolve state → choose the parent (one, or two to merge) |
+| Middle (configured) | single: the agent analyzes and picks one change itself. multi: read-only analysts propose in parallel, a decider judges them blind and picks one, and an optional critic challenges it |
+| Tail (fixed) | implement → precheck (quick compile, self-repair) → score → record (one ITER line) → update the monitor |
 
-每一輪結束時會印出一行 ITER，例如：
+Each iteration ends with one ITER line, for example:
 
 ```
 ITER 7/20 | c012<-c009 | hpwl 1.0231e6 (-0.80% better) | runtime 41.200s (+1.2% same) | KEPT | front=3
 ```
 
-## 指令
+## Commands
 
-在你自己的 session 使用的 slash command：
+Slash commands for your own sessions:
 
-| 指令 | 作用 |
+| Command | What it does |
 |---|---|
-| `/loopkit:init <描述>` | 設定並建立 run |
-| `/loopkit:request-eval <commit>` | 把你的 commit 送去評估 |
-| `/loopkit:promote <hNNN>` | 讓人工候選加入演化 |
-| `/loopkit:adopt <id>` | 在你的 repo 建立指向候選的 branch |
-| `/loopkit:status` | run 的狀態 |
-| `/loopkit:stop` | 提早結束目前的批次 |
-| `/loopkit:report` | 收集除錯報告並診斷；報告的 `.tar.gz` 可以直接附到 GitHub issue |
+| `/loopkit:init <request>` | set up and create a run |
+| `/loopkit:request-eval <commit>` | send one of your commits for evaluation |
+| `/loopkit:promote <hNNN>` | let a human candidate join the evolution |
+| `/loopkit:adopt <id>` | create a branch in your repository at a candidate |
+| `/loopkit:status` | the state of a run |
+| `/loopkit:stop` | end the current batch early |
+| `/loopkit:report` | collect a debug report and diagnose it; attach the report's `.tar.gz` to a GitHub issue |
 
-`/loopkit:iter` 只在 run session 裡由 `/goal` 或 `/loop` 執行。
+`/loopkit:iter` is only run by `/goal` or `/loop` in a run session.
 
-框架指令是一支 Python 程式 `loopkit`，負責所有 git 和 ledger 的寫入。常用的有 `loopkit summary`、`loopkit show <id> --log`、`loopkit lineage <id>`、`loopkit diff <a> <b>`、`loopkit status`、`loopkit run list`、`loopkit check`。完整清單見 `loopkit --help`，或 [skill 的說明](claude-plugin/skills/loopkit/SKILL.md)。
+The framework command is a Python program, `loopkit`, which does every git and ledger write. Common ones are `loopkit summary`, `loopkit show <id> --log`, `loopkit lineage <id>`, `loopkit diff <a> <b>`, `loopkit status`, `loopkit run list` and `loopkit check`. For the full list, see `loopkit --help` or the [skill reference](claude-plugin/skills/loopkit/SKILL.md).
 
-在 Claude Code 裡，`loopkit` 已經在 PATH 上。要在一般終端機使用，先執行一次 `python3 <plugin 路徑>/bin/loopkit shim`，它會在 `~/.local/bin/loopkit` 建立捷徑。
+Inside Claude Code, `loopkit` is already on the PATH. To use it from an ordinary terminal, run `python3 <plugin path>/bin/loopkit shim` once; it creates a shortcut at `~/.local/bin/loopkit`.
 
-## 評分腳本
+## The score script
 
-評分腳本由 init 依你的描述產生，run 建立時固定成快照。框架在乾淨的 eval worktree 裡執行它，只讀它寫出的結果 JSON：
+init generates the score script from your request, and it is frozen into a snapshot when the run is created. The framework runs it in a clean eval worktree and reads only the result JSON it writes:
 
 ```json
 {"schema": 1, "status": "ok",
@@ -102,30 +102,30 @@ ITER 7/20 | c012<-c009 | hpwl 1.0231e6 (-0.80% better) | runtime 41.200s (+1.2% 
  "extra": {"gpu_mem_mb": 5120}}
 ```
 
-build、重複量測、彙整都是腳本的事。完整規格和隔離檢查清單見 [score-contract.md](claude-plugin/skills/loopkit/references/score-contract.md)，設定檔的每個欄位見 [config.md](claude-plugin/skills/loopkit/references/config.md)。
+Building, repeated measurements and aggregation are up to the script. For the full contract and the isolation checklist, see [score-contract.md](claude-plugin/skills/loopkit/references/score-contract.md); for every config field, see [config.md](claude-plugin/skills/loopkit/references/config.md).
 
-## 安全與評分完整性
+## Safety and scoring integrity
 
-run session 的 agent 可以執行任意指令，而且環境沒有 Docker，所以 loopkit 的目標是擋下意外和常見的誤用，並偵測竄改，不是保證絕對安全：
+The agent in a run session can run any command, and there is no Docker, so loopkit aims to stop accidents and common misuse and to detect tampering, not to guarantee absolute security:
 
-1. **隔離**：run 在獨立的 agent worktree 進行；評分在另一個 eval worktree，用 run 目錄裡的快照。
-2. **範圍檢查**：只能改設定裡的 scope；`.loopkit/`、`.claude/`、`.gitignore`、`.gitattributes`、`.gitmodules`、submodule 和指到 tree 外的 symlink 一律不行。
-3. **權限規則**：run 的 worktree 有禁止編輯你的 repo、eval worktree、run 資料和 `.git` 的規則。
-4. **hook**：在 run session 中，git 只能讀，寫入由框架負責；會動到受保護位置的指令、無法解析的指令、背景執行和只給你用的指令都會被擋下。hook 只在 run session 中作用，你平常的 session 不受影響。
-5. **竄改偵測**：每一輪開頭和每次評分前，檢查評分資產快照、ledger 的 hash chain、候選的 ref、佇列，以及可能在 checkout 時執行程式碼的 git 設定。有問題就停止 run。
+1. **Isolation**: a run works in its own agent worktree; scoring happens in a separate eval worktree, using the snapshot in the run directory.
+2. **Scope check**: only the config's scope may change. `.loopkit/`, `.claude/`, `.gitignore`, `.gitattributes`, `.gitmodules`, submodules, and symlinks pointing outside the tree never may.
+3. **Permission rules**: the run's worktree has rules that forbid editing your repository, the eval worktree, run data and `.git`.
+4. **Hooks**: in a run session, git may only read, because writes belong to the framework. Commands that would touch protected locations, commands that cannot be parsed, background runs and the commands meant for you alone are blocked. The hooks act only in run sessions; your ordinary sessions are not affected.
+5. **Tamper detection**: at the head of every iteration and before every scoring, loopkit checks the eval-assets snapshot, the ledger's hash chain, the candidate refs, the queue, and git configuration that could run code during a checkout. Any problem stops the run.
 
-## 開發
+## Development
 
 ```
-python3 -m unittest discover -s tests -p 'test_loopkit_*.py'   # 單元測試
-bash tests/test-run-e2e.sh                                      # 用玩具 repo 跑完整流程
+python3 -m unittest discover -s tests -p 'test_loopkit_*.py'   # unit tests
+bash tests/test-run-e2e.sh                                      # the full flow on a toy repository
 bash tests/test-hooks.sh                                        # hooks
 ```
 
-見 [CONTRIBUTING.md](CONTRIBUTING.md)。
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## 授權與致謝
+## License and credits
 
-MIT，見 [LICENSE](LICENSE)。
+MIT, see [LICENSE](LICENSE).
 
-loopkit fork 自 Udit Goenka 的 [uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch)（MIT），其構想來自 [Andrej Karpathy 的 autoresearch](https://github.com/karpathy/autoresearch)。
+loopkit is a fork of [uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch) by Udit Goenka (MIT), which builds on [Andrej Karpathy's autoresearch](https://github.com/karpathy/autoresearch).

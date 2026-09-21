@@ -1,6 +1,6 @@
 ---
 description: Set up a loopkit run for this repository - objectives, score script, config, monitor, worktrees and the scored baseline - so /goal or /loop can start.
-argument-hint: "<what to optimize, e.g. 優化hpwl與runtime>"
+argument-hint: "<what to optimize, e.g. optimize hpwl and runtime>"
 ---
 
 # /loopkit:init
