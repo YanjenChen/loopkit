@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: escalates clear sensitive-file access to the host permission UI.
+"""PreToolUse hook: in a run session, blocks clear access to sensitive files.
 
-Fails open on any error — never blocks legitimate work due to hook malfunction.
+A run is unattended, so there is nobody to answer a permission prompt: clear
+access to credentials is blocked and the agent continues without it. Fails open
+on any error — never blocks legitimate work due to hook malfunction.
 """
 
 import os
@@ -10,9 +12,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
-from ar_hook_utils import (  # noqa: E402
-    ask_permission, inject, is_enabled, is_remote_operand, js_basename, js_truthy, log, prop,
-    run, safe_parse_stdin, shell_segments,
+from hook_utils import (  # noqa: E402
+    block, is_enabled, is_remote_operand, js_basename, js_truthy, log, output, prop, run, run_context,
+    safe_parse_stdin, shell_segments,
 )
 
 HOOK_NAME = 'privacy-block'
@@ -60,9 +62,13 @@ def is_sensitive(file_path):
         if base == exc or normalized.endswith('/' + exc):
             return False
 
-    # Check sensitive patterns
+    # Check sensitive patterns. A pattern ending in '/' names a directory anywhere in the path.
     for pattern in SENSITIVE_PATTERNS:
         lp = pattern.lower()
+        if lp.endswith('/'):
+            if ('/' + lp) in ('/' + normalized) or normalized.endswith('/' + lp[:-1]) or normalized == lp[:-1]:
+                return True
+            continue
         if (base == lp
                 or normalized.endswith('/' + lp)
                 or normalized.endswith(lp)
@@ -102,7 +108,7 @@ def bash_sensitivity(command):
     return 'none'
 
 
-STRUCTURED_TOOLS = {'Read', 'Edit', 'Write', 'Glob', 'Grep'}
+STRUCTURED_TOOLS = {'Read', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'Glob', 'Grep'}
 
 
 def main():
@@ -110,7 +116,7 @@ def main():
         sys.exit(0)
 
     stdin = safe_parse_stdin(HOOK_NAME)
-    if not js_truthy(stdin):
+    if not js_truthy(stdin) or run_context(stdin) is None:
         sys.exit(0)
 
     tool_name = prop(stdin, 'tool_name')
@@ -121,14 +127,16 @@ def main():
     if tool_name in STRUCTURED_TOOLS:
         raw_path = prop(tool_input, 'file_path')
         if not js_truthy(raw_path):
+            raw_path = prop(tool_input, 'notebook_path')
+        if not js_truthy(raw_path):
             raw_path = prop(tool_input, 'path')
         if not js_truthy(raw_path):
             raw_path = ''
 
         if is_sensitive(raw_path):
-            log(HOOK_NAME, {'action': 'ask', 'tool': tool_name, 'category': 'sensitive-file'})
-            ask_permission('This operation targets a potentially sensitive file. '
-                           'Confirm access in the host permission prompt.')
+            log(HOOK_NAME, {'action': 'block', 'tool': tool_name, 'category': 'sensitive-file'})
+            block('BLOCKED: This operation targets a potentially sensitive file. '
+                  'A loopkit run does not read credentials; continue without it.')
 
         sys.exit(0)
 
@@ -137,13 +145,15 @@ def main():
         command = command if js_truthy(command) else ''
         sensitivity = bash_sensitivity(command)
         if sensitivity == 'clear':
-            log(HOOK_NAME, {'action': 'ask', 'tool': tool_name, 'category': 'sensitive-command'})
-            ask_permission('This command clearly accesses a potentially sensitive file. '
-                           'Confirm access in the host permission prompt.')
+            log(HOOK_NAME, {'action': 'block', 'tool': tool_name, 'category': 'sensitive-command'})
+            block('BLOCKED: This command clearly accesses a potentially sensitive file. '
+                  'A loopkit run does not read credentials; continue without it.')
         if sensitivity == 'ambiguous':
             log(HOOK_NAME, {'action': 'warn', 'tool': tool_name, 'category': 'ambiguous-sensitive-text'})
-            inject('WARNING: The command contains sensitive-looking text. '
-                   'Confirm that it does not expose credentials.')
+            output({'hookSpecificOutput': {
+                'hookEventName': 'PreToolUse',
+                'additionalContext': 'WARNING: The command contains sensitive-looking text. '
+                                     'Make sure it does not expose credentials.'}})
 
     sys.exit(0)
 

@@ -1,9 +1,11 @@
-"""Shared helpers for the hook scripts.
+"""Shared helpers for the loopkit hook scripts.
 
-Ported 1:1 from the original Node.js implementation (ar-hook-utils.cjs). The
-js_* helpers reproduce the JavaScript semantics the hooks relied on (truthiness,
-path.basename, path.join, os.tmpdir, process.cwd, String.trim, regex \\s and .)
-so behavior stays identical.
+The hooks were ported from a Node.js implementation; the js_* helpers keep the
+JavaScript semantics they relied on (truthiness, path.basename, path.join,
+process.cwd, String.trim, regex \\s and .).
+
+Every loopkit hook acts only inside a loopkit run session (see run_context);
+in any other session it exits without output.
 Standard library only; compatible with Python 3.8+.
 """
 
@@ -12,8 +14,6 @@ import hashlib
 import json
 import os
 import re
-import stat
-import subprocess
 import sys
 import time
 
@@ -33,9 +33,6 @@ JS_WS_CHARS = ''.join('\\u%04x' % code for code in _JS_WHITESPACE_CODES)  # for 
 JS_WS = '[' + JS_WS_CHARS + ']'                                         # JS \s
 JS_NON_WS = '[^' + JS_WS_CHARS + ']'                                    # JS \S
 JS_DOT = '[^\\n\\r\\u2028\\u2029]'                                        # JS . (no s flag)
-
-# Node's execSync default maxBuffer; larger output makes it throw.
-EXEC_MAX_BUFFER = 1024 * 1024
 
 
 def js_trim(text):
@@ -171,24 +168,12 @@ def md5_prefix(text):
     return hashlib.md5(_to_utf8(text)).hexdigest()[:12]
 
 
-def exec_sync(*args):
-    """child_process.execSync(cmd, {encoding: 'utf8', timeout: 5000}).
-
-    Raises on a non-zero exit, a timeout, or output above Node's 1 MiB maxBuffer.
-    stderr is inherited, as with execSync.
-    """
-    result = subprocess.run(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, timeout=5, check=True)
-    if len(result.stdout) > EXEC_MAX_BUFFER:
-        raise OSError('stdout maxBuffer length exceeded')
-    return result.stdout.decode('utf-8', errors='replace')
-
-
 # ---------------------------------------------------------------------------
 # Hook plumbing
 # ---------------------------------------------------------------------------
 
 def is_enabled(hook_name):
-    env_key = 'AR_DISABLE_' + hook_name.replace('-', '_').upper()
+    env_key = 'LOOPKIT_DISABLE_' + hook_name.replace('-', '_').upper()
     return not os.environ.get(env_key)
 
 
@@ -204,54 +189,10 @@ def safe_parse_stdin(hook_name):
             'remediation': remediation,
         })
         output({
-            'systemMessage': 'Autoresearch %s Guardrail unavailable: invalid input. %s'
+            'systemMessage': 'loopkit %s guardrail unavailable: invalid input. %s'
                              % (hook_name or 'unknown', remediation)
         })
         return None
-
-
-def get_session_id(stdin):
-    session_id = prop(stdin, 'session_id') if js_truthy(stdin) else None
-    return session_id if js_truthy(session_id) else 'unknown'
-
-
-def get_session_hash(stdin):
-    return md5_prefix(js_cwd() + ':' + js_str(get_session_id(stdin)))
-
-
-def session_state_path(stdin):
-    return js_join(js_tmpdir(), 'ar-session-' + get_session_hash(stdin) + '.json')
-
-
-def load_session_state(stdin):
-    try:
-        with open(session_state_path(stdin), encoding='utf-8', errors='replace') as handle:
-            raw = handle.read()
-    except FileNotFoundError:
-        cwd = js_cwd()
-        return {
-            'projectRoot': cwd,
-            'plansPath': js_join(cwd, 'plans'),
-            'reportsPath': js_join(cwd, 'plans', 'reports'),
-            'gitBranch': '',
-            'sessionId': get_session_id(stdin),
-            'iterationCount': 0,
-        }
-    # A corrupt state file raises here so the caller fails open visibly.
-    return parse_json(raw)
-
-
-def save_session_state(stdin, state):
-    with open(session_state_path(stdin), 'wb') as handle:
-        handle.write(_dumps(state, indent=2))
-
-
-def increment_counter(stdin, field):
-    state = load_session_state(stdin)
-    current = state.get(field)
-    state[field] = (current if js_truthy(current) else 0) + 1
-    save_session_state(stdin, state)
-    return state[field]
 
 
 _SAFE_LOG_KEYS = ('action', 'tool', 'loc', 'duration', 'iterations', 'category', 'remediation')
@@ -275,58 +216,6 @@ def log(hook_name, entry):
         pass  # fail-open
 
 
-def read_tsv_tail(file_path, n):
-    try:
-        with open(file_path, encoding='utf-8', errors='replace', newline='') as handle:
-            content = handle.read()
-        lines = [line for line in content.split('\n') if js_trim(line)]
-
-        def is_header(line):
-            return line.startswith('#') or line.startswith('iteration\t') or line.startswith('iteration|')
-
-        header_lines = [line for line in lines if is_header(line)]
-        data_lines = [line for line in lines if not is_header(line)]
-        header = header_lines[-1] if header_lines else ''
-        return {'header': header, 'rows': data_lines[-n:], 'total': len(data_lines)}
-    except Exception:
-        return None
-
-
-def find_recent_tsv(cwd, max_age_minutes):
-    max_age = max_age_minutes * 60 * 1000
-    now = now_ms()
-    ar_dir = js_join(cwd, 'autoresearch')
-    best = None
-    best_mtime = 0
-
-    try:
-        dirs = sorted_listdir(ar_dir)
-    except Exception:
-        return None  # no autoresearch dir
-
-    for name in dirs:
-        subdir = js_join(ar_dir, name)
-        try:
-            info = os.stat(subdir)
-        except Exception:
-            continue
-        if not stat.S_ISDIR(info.st_mode):
-            continue
-        try:
-            for file_name in sorted_listdir(subdir):
-                if not file_name.endswith('.tsv'):
-                    continue
-                file_path = js_join(subdir, file_name)
-                mtime = os.stat(file_path).st_mtime_ns / 1e6
-                if now - mtime < max_age and mtime > best_mtime:
-                    best = file_path
-                    best_mtime = mtime
-        except Exception:
-            continue
-
-    return best
-
-
 # ---------------------------------------------------------------------------
 # Shell command parsing
 # ---------------------------------------------------------------------------
@@ -348,6 +237,17 @@ _HEREDOC_DELIMITER = re.compile('''(?:['"]([^'"]+)['"]|([^''' + JS_WS_CHARS + ''
 
 
 def tokenize_shell(command):
+    segments, substitutions, _ = tokenize_shell_checked(command)
+    return segments, substitutions
+
+
+def shell_is_complete(command):
+    """False when the command ends inside a quote, $(...) or backticks."""
+    return tokenize_shell_checked(command)[2]
+
+
+def tokenize_shell_checked(command):
+    complete = [True]
     segments = []
     substitutions = []
     tokens = []
@@ -422,6 +322,8 @@ def tokenize_shell(command):
                 else:
                     inner.append(current)
                 i += 1
+            if depth > 0:
+                complete[0] = False
             i -= 1
             substitutions.append(''.join(inner))
             token.append('$()')
@@ -436,6 +338,8 @@ def tokenize_shell(command):
                 else:
                     inner.append(command[i])
                 i += 1
+            if i >= length:
+                complete[0] = False
             substitutions.append(''.join(inner))
             token.append('``')
             continue
@@ -476,7 +380,9 @@ def tokenize_shell(command):
         token.append(char)
         line_start = False
     push_segment()
-    return segments, substitutions
+    if quote:
+        complete[0] = False
+    return segments, substitutions, complete[0]
 
 
 _ASSIGNMENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
@@ -589,6 +495,106 @@ def shell_segments(command, depth=0):
 
 
 # ---------------------------------------------------------------------------
+# Run context: is this session a loopkit run session?
+# ---------------------------------------------------------------------------
+
+PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if PLUGIN_ROOT not in sys.path:
+    sys.path.insert(0, PLUGIN_ROOT)
+
+_PROJECT_KEY = re.compile(r'[^a-zA-Z0-9]')
+
+
+def _run_from_marker(start):
+    from loopkit import paths as lk_paths
+    root, marker = lk_paths.find_marker(start)
+    if not marker or not marker.get('run_dir'):
+        return None
+    run_paths = lk_paths.RunPaths(marker['run_dir'])
+    if run_paths.exists() and os.path.realpath(run_paths.agent) == os.path.realpath(root):
+        return run_paths
+    return None
+
+
+def _run_from_project_key(key):
+    """Match ~/.claude/projects/<key>/ (the session's start directory, sanitized) to a run's agent worktree."""
+    from loopkit import paths as lk_paths
+    data = lk_paths.data_root()
+    try:
+        repos = sorted_listdir(data)
+    except OSError:
+        return None
+    for repo in repos:
+        try:
+            names = sorted_listdir(os.path.join(data, repo))
+        except OSError:
+            continue
+        for name in names:
+            run_paths = lk_paths.RunPaths(os.path.join(data, repo, name))
+            if not run_paths.exists():
+                continue
+            for path in {run_paths.agent, os.path.realpath(run_paths.agent)}:
+                if _PROJECT_KEY.sub('-', path) == key:
+                    return run_paths
+    return None
+
+
+def run_context(stdin):
+    """The RunPaths of the loopkit run this session works in, or None.
+
+    Checked in order: CLAUDE_PROJECT_DIR, the project directory encoded in the
+    transcript path, and the hook's cwd. The first two do not change when the
+    agent cds elsewhere, so a `cd` cannot switch the run rules off.
+    """
+    try:
+        project = os.environ.get('CLAUDE_PROJECT_DIR')
+        if project:
+            found = _run_from_marker(project)
+            if found:
+                return found
+        transcript = prop(stdin, 'transcript_path') if js_truthy(stdin) else None
+        if isinstance(transcript, str) and transcript:
+            found = _run_from_project_key(os.path.basename(os.path.dirname(transcript)))
+            if found:
+                return found
+        cwd = prop(stdin, 'cwd') if js_truthy(stdin) else None
+        return _run_from_marker(cwd if isinstance(cwd, str) and cwd else js_cwd())
+    except Exception:
+        return None
+
+
+def run_status_text(run_paths, recent=3):
+    """A short status of the run for injected context."""
+    from loopkit import batch as lk_batch, ledger as lk_ledger, pareto as lk_pareto, report as lk_report
+    from loopkit import queue as lk_queue
+    info = run_paths.info()
+    config = info['config']
+    records = lk_ledger.Ledger(run_paths.ledger, info['run']).records()
+    evo = lk_pareto.Evolution(config, records)
+    lines = ['loopkit run %s | agent worktree %s' % (info['run'], run_paths.agent)]
+    current = lk_batch.current(records)
+    if current:
+        done = lk_batch.iterations(records, current['batch'])
+        max_iters = (current['conditions'] or {}).get('max_iters')
+        lines.append('batch %d: iter %d%s | stop: %s%s' % (
+            current['batch'], done, '/%d' % max_iters if max_iters else '',
+            lk_batch.describe(current['conditions']),
+            ' | STOPPED (%s)' % current['stopped'] if current['stopped'] else ''))
+    else:
+        lines.append('no batch yet')
+    front = ', '.join('%s %s' % (m, lk_report._values(config, evo.candidates[m])) for m in evo.front)
+    lines.append('front (%d): %s' % (len(evo.front), front or 'empty'))
+    agents = [r for r in lk_ledger.candidates(records) if r.get('by') == 'agent'][-recent:]
+    for record in agents:
+        lines.append('  %s<-%s %s %s' % (record['id'], '+'.join(record.get('parents') or []), record.get('status'),
+                                         (record.get('reason') or '')[:80]))
+    pending = lk_queue.pending(run_paths)
+    if pending:
+        lines.append('queue: %d request(s) waiting for the next iteration head' % len(pending))
+    return '\n'.join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Hook output
 # ---------------------------------------------------------------------------
 
@@ -609,8 +615,9 @@ def allow(extra=None):
     sys.exit(0)
 
 
-def inject(text):
-    output({'additionalContext': text})
+def inject(text, event):
+    """Add text to the model's context for a UserPromptSubmit, SessionStart or SubagentStart hook."""
+    output({'hookSpecificOutput': {'hookEventName': event, 'additionalContext': text}})
     sys.exit(0)
 
 
@@ -629,7 +636,7 @@ def fail_open(hook_name, category):
     remediation = 'Retry the action or inspect the hook installation.'
     log(hook_name, {'action': 'fail-open', 'category': category, 'remediation': remediation})
     output({
-        'systemMessage': 'Autoresearch %s Guardrail unavailable: %s. %s' % (hook_name, category, remediation)
+        'systemMessage': 'loopkit %s guardrail unavailable: %s. %s' % (hook_name, category, remediation)
     })
     sys.exit(0)
 

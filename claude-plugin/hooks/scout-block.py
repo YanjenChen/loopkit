@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: blocks file access to directories matching .ckignore patterns.
+"""PreToolUse hook: in a run session, blocks file access to directories matching .ckignore patterns.
 
-Fails open on any error — never blocks legitimate work due to hook malfunction.
+Keeps the run's agents out of generated and vendored trees (node_modules, build
+outputs, .git). Fails open on any error — never blocks legitimate work due to
+hook malfunction.
 """
 
 import os
@@ -10,9 +12,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
-from ar_hook_utils import (  # noqa: E402
+from hook_utils import (  # noqa: E402
     JS_DOT, JS_WS, block, is_enabled, is_remote_operand, js_basename, js_cwd, js_join,
-    js_relative, js_truthy, log, prop, run, safe_parse_stdin, shell_segments,
+    js_relative, js_truthy, log, prop, run, run_context, safe_parse_stdin, shell_segments,
 )
 from ignore import ignore  # noqa: E402
 
@@ -141,7 +143,7 @@ def block_message(matched):
             'To allow, add to .ckignore: !%s' % (matched, matched))
 
 
-STRUCTURED_TOOLS = {'Read', 'Edit', 'Write', 'Glob', 'Grep'}
+STRUCTURED_TOOLS = {'Read', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'Glob', 'Grep'}
 
 
 def main():
@@ -149,7 +151,7 @@ def main():
         sys.exit(0)
 
     stdin = safe_parse_stdin(HOOK_NAME)
-    if not js_truthy(stdin):
+    if not js_truthy(stdin) or run_context(stdin) is None:
         sys.exit(0)
 
     tool_name = prop(stdin, 'tool_name')
@@ -174,6 +176,8 @@ def main():
     # Structured tools: Read, Edit, Write, Glob, Grep
     if tool_name in STRUCTURED_TOOLS:
         file_path = prop(tool_input, 'file_path')
+        if not js_truthy(file_path):
+            file_path = prop(tool_input, 'notebook_path')
         if not js_truthy(file_path):
             file_path = prop(tool_input, 'path')
         if not js_truthy(file_path):

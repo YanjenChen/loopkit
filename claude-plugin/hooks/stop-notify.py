@@ -1,80 +1,24 @@
 #!/usr/bin/env python3
-"""SessionEnd hook: sends terminal notification and optional webhook when session terminates.
+"""SessionEnd hook: when a run session ends, sends a terminal notification and an optional webhook.
 
-Cleans up session state file after firing. Fails open on any error.
+The summary (batch progress and front) comes from the run's ledger. Set
+LOOPKIT_NOTIFY_WEBHOOK to also POST it as JSON. Outside a run session it does
+nothing. Fails open on any error.
 """
 
-import datetime
 import http.client
 import json
-import math
 import os
-import re
 import sys
 import urllib.parse
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
 
-from ar_hook_utils import (  # noqa: E402
-    find_recent_tsv, is_enabled, js_basename, js_cwd, js_truthy, load_session_state, log,
-    now_ms, output, read_tsv_tail, run, safe_parse_stdin, session_state_path,
+from hook_utils import (  # noqa: E402
+    is_enabled, js_truthy, log, output, run, run_context, run_status_text, safe_parse_stdin,
 )
 
 HOOK_NAME = 'stop-notify'
-
-
-def parse_date_ms(value):
-    """new Date(value).getTime(): epoch milliseconds, or NaN when unparseable."""
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return float(value)
-    try:
-        text = str(value).strip()
-        if len(text) == 10:  # date-only ISO strings are UTC
-            text += 'T00:00:00+00:00'
-        parsed = datetime.datetime.fromisoformat(text.replace('Z', '+00:00'))
-        return parsed.timestamp() * 1000  # naive date-times are local time, as in JS
-    except Exception:
-        return float('nan')
-
-
-def format_duration(started_at):
-    if not js_truthy(started_at):
-        return 'unknown'
-    ms = now_ms() - parse_date_ms(started_at)
-    if ms < 0:
-        return 'unknown'
-    if ms != ms:
-        return 'NaNm NaNs'  # matches the JavaScript output for an unparseable date
-    total_seconds = math.floor(ms / 1000)
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
-    seconds = total_seconds % 60
-    if hours > 0:
-        return '%dh %dm' % (hours, minutes)
-    return '%dm %ds' % (minutes, seconds)
-
-
-_METRIC = re.compile(r'[\t|]([0-9.-]+)(?:[\t|]|\Z)')
-
-
-def build_tsv_summary(project_root):
-    tsv_path = find_recent_tsv(project_root, 120)  # look back 2 hours on session end
-    if not tsv_path:
-        return {'text': 'no iterations recorded', 'iterations': 0}
-
-    tsv = read_tsv_tail(tsv_path, 1)
-    if not tsv:
-        return {'text': 'no iterations recorded', 'iterations': 0}
-
-    last_row = tsv['rows'][0] if tsv['rows'] else ''
-    match = _METRIC.search(last_row)
-    metric = match.group(1) if match else 'n/a'
-
-    return {
-        'text': '%d iterations, metric: %s' % (tsv['total'], metric),
-        'iterations': tsv['total'],
-    }
-
 
 # Characters the WHATWG URL parser leaves unencoded in the path and query.
 _PATH_SAFE = "!$%&'()*+,-./:;=@[]^_|~"
@@ -106,13 +50,6 @@ def post_webhook(webhook_url, payload):
         pass
 
 
-def cleanup_session_file(stdin):
-    try:
-        os.unlink(session_state_path(stdin))
-    except Exception:
-        pass  # already gone or unwritable
-
-
 def main():
     if not is_enabled(HOOK_NAME):
         sys.exit(0)
@@ -120,31 +57,22 @@ def main():
     stdin = safe_parse_stdin(HOOK_NAME)
     if not js_truthy(stdin):
         sys.exit(0)
+    run_paths = run_context(stdin)
+    if run_paths is None:
+        sys.exit(0)
 
-    state = load_session_state(stdin)
-    duration = format_duration(state.get('startedAt'))
-    project_root = state.get('projectRoot') if js_truthy(state.get('projectRoot')) else js_cwd()
-    tsv_summary = build_tsv_summary(project_root)
-    project_name = js_basename(project_root)
-
-    notify_text = 'autoresearch;Session completed — %s (%s)' % (project_name, duration)
+    status = run_status_text(run_paths, recent=0)
+    lines = status.split('\n')
+    headline = lines[1] if len(lines) > 1 else lines[0]
+    notify_text = 'loopkit;Run session ended - %s' % headline
     result = {'terminalSequence': '\x1b]777;notify;' + notify_text + '\x07'}
 
     # Optional webhook is bounded and awaited so the process cannot exit early.
-    webhook_url = os.environ.get('AR_NOTIFY_WEBHOOK')
+    webhook_url = os.environ.get('LOOPKIT_NOTIFY_WEBHOOK')
     if webhook_url:
-        post_webhook(webhook_url, {
-            'text': 'autoresearch session completed',
-            'project': project_name,
-            'branch': state.get('gitBranch') if js_truthy(state.get('gitBranch')) else '',
-            'duration': duration,
-            'tsv_summary': tsv_summary['text'],
-        })
+        post_webhook(webhook_url, {'text': 'loopkit run session ended', 'run': run_paths.name, 'status': status})
 
-    log(HOOK_NAME, {'projectName': project_name, 'duration': duration, 'iterations': tsv_summary['iterations']})
-
-    cleanup_session_file(stdin)
-
+    log(HOOK_NAME, {'action': 'notify'})
     output(result)
     sys.exit(0)
 

@@ -12,7 +12,7 @@ import sys
 
 hook, marker = sys.argv[1], sys.argv[2]
 mode = sys.argv[3] if len(sys.argv) > 3 else 'success'
-os.environ['_'.join(['AR', 'NOTIFY', 'WEBHOOK'])] = 'https://127.0.0.1/notify'
+os.environ['_'.join(['LOOPKIT', 'NOTIFY', 'WEBHOOK'])] = 'https://127.0.0.1/notify'
 
 
 class _Response(object):

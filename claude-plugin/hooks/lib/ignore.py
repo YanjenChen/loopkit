@@ -10,7 +10,7 @@ non-unicode JavaScript RegExp reads them (Annex B escapes, [] and [^], $, .).
 import re
 import warnings
 
-from ar_hook_utils import JS_DOT, JS_NON_WS, JS_WS, JS_WS_CHARS, js_trim
+from hook_utils import JS_DOT, JS_NON_WS, JS_WS, JS_WS_CHARS, js_trim
 
 _HEX = '0123456789abcdefABCDEF'
 _OCTAL = '01234567'

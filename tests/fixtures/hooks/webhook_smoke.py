@@ -23,7 +23,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
         try:
-            received['ok'] = json.loads(body).get('text') == 'autoresearch session completed'
+            received['ok'] = json.loads(body).get('text') == 'loopkit run session ended'
         except ValueError:
             received['ok'] = False
 
@@ -34,7 +34,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 env = dict(os.environ)
-env['_'.join(['AR', 'NOTIFY', 'WEBHOOK'])] = 'http://127.0.0.1:%d/notify' % server.server_address[1]
+env['_'.join(['LOOPKIT', 'NOTIFY', 'WEBHOOK'])] = 'http://127.0.0.1:%d/notify' % server.server_address[1]
 try:
     child = subprocess.run([sys.executable, '-B', hook], input=json.dumps({'session_id': 'webhook-smoke'}).encode(),
                            env=env, stdout=subprocess.DEVNULL, timeout=3)

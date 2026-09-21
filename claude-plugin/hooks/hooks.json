@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -12,6 +12,11 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.py\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/dangerous-cmd-block.py\"",
             "timeout": 10
           }
         ]
@@ -37,7 +42,7 @@
         ]
       },
       {
-        "matcher": "Glob|Grep|Read|Edit",
+        "matcher": "Glob|Grep|Read",
         "hooks": [
           {
             "type": "command",
